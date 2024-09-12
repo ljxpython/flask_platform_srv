@@ -14,3 +14,13 @@ def get_user_info():
     logger.info(users)
     # return jsonify({"Result":list(users)}, status=200)
     return list(users)
+
+@admin.route("/<user>")
+def set(user):
+    session["user"] = user
+    return {"user":user},200
+
+@admin.route("/getuser")
+def getuser():
+    return {"user":session.get("user")},200
+
