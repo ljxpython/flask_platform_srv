@@ -6,7 +6,7 @@ import pymysql
 app = Flask(__name__)
 
 #设置连接数据库的URL
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://test_plant:YsmFmXziiaGNKr5i@101.200.146.122:3306/test_plant'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:123456@localhost:3306/test'
 
 #设置每次请求结束后会自动提交数据库中的改动
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
