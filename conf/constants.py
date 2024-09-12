@@ -8,6 +8,9 @@
 import os
 from pathlib import Path
 from conf.config import settings
+from datetime import timedelta
+
+
 
 # dirname(path) 是返回path的父路径
 testpath = Path(__file__).absolute()
@@ -50,11 +53,17 @@ ADMIN_PHONE = "13525468134"
 
 class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SECRET_KEY = "sdfsdfsdf"
+    # flask-session配置 使用随机的字符串
+    SECRET_KEY = os.urandom(24)
     # flask-session配置
     SESSION_TYPE = "redis"
     SESSION_USE_SIGNER = True  # 对cookie中session_id进行隐藏处理 加密混淆
     PERMANENT_SESSION_LIFETIME = 200  # session数据的有效期，单位秒
+    # JWT配置秘钥
+    JWT_SECRET_KEY = os.urandom(10)  # 加密
+    # JWT配置过期时间
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)  # 1小时
+
 
 # 开发环境
 class DevelopmentConfig(Config):
@@ -68,7 +77,7 @@ class ProductionConfig(Config):
     """生产环境配置信息"""
     # SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:jamkung@pukgai.com:3306/caiji_pro'
     SESSION_REDIS = redis.Redis(host=settings.redis.host, port=settings.redis.port, password=settings.redis.password, db=settings.redis.db)  # 操作的redis配置
-
+    PERMANENT_SESSION_LIFETIME = timedelta(days=1) # 配置7天有效
 
 
 config_map = {
