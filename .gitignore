@@ -266,3 +266,5 @@ plant_srv/conf/settings.local.yaml
 **/logs
 
 **/.idea
+
+.idea
