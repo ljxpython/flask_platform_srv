@@ -264,3 +264,5 @@ plant_srv/conf/settings.local.yaml
 # End of https://www.toptal.com/developers/gitignore/api/flask,python
 
 **/logs
+
+**/.idea
