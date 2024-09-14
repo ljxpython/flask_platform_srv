@@ -6,11 +6,10 @@
 """
 
 import os
-from pathlib import Path
-from conf.config import settings
 from datetime import timedelta
+from pathlib import Path
 
-
+from conf.config import settings
 
 # dirname(path) 是返回path的父路径
 testpath = Path(__file__).absolute()
@@ -40,7 +39,8 @@ output_dir = os.path.join(base_dir, "output")
 
 # 需要的配置
 import redis
-redis_store = redis.Redis(host='127.0.0.1', port=6379, db=1)  # 操作的redis配置
+
+redis_store = redis.Redis(host="127.0.0.1", port=6379, db=1)  # 操作的redis配置
 
 
 ##### 常量
@@ -48,7 +48,6 @@ ADMIN_USERNAME = "夹心巧克力"
 ADMIN_PASSWORD = "ljxpaasword"
 ADMIN_POWER = "超级管理员"
 ADMIN_PHONE = "13525468134"
-
 
 
 class Config:
@@ -68,29 +67,29 @@ class Config:
 # 开发环境
 class DevelopmentConfig(Config):
     """开发模式的配置信息"""
+
     # SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:123456@127.0.0.1:3306/test_plant'  # 使用peewee来进行测试
-    SESSION_REDIS = redis.Redis(host='127.0.0.1', port=6379, db=2)  # 操作的redis配置
+    SESSION_REDIS = redis.Redis(host="127.0.0.1", port=6379, db=2)  # 操作的redis配置
     DEBUG = True
+
 
 # 线上环境
 class ProductionConfig(Config):
     """生产环境配置信息"""
+
     # SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root:jamkung@pukgai.com:3306/caiji_pro'
-    SESSION_REDIS = redis.Redis(host=settings.redis.host, port=settings.redis.port, password=settings.redis.password, db=settings.redis.db)  # 操作的redis配置
-    PERMANENT_SESSION_LIFETIME = timedelta(days=1) # 配置7天有效
+    SESSION_REDIS = redis.Redis(
+        host=settings.redis.host,
+        port=settings.redis.port,
+        password=settings.redis.password,
+        db=settings.redis.db,
+    )  # 操作的redis配置
+    PERMANENT_SESSION_LIFETIME = timedelta(days=1)  # 配置7天有效
 
 
-config_map = {
-    "develop": DevelopmentConfig,
-    "product": ProductionConfig
-}
-
-
-
-
+config_map = {"develop": DevelopmentConfig, "product": ProductionConfig}
 
 
 if __name__ == "__main__":
     print(os.path.abspath(""))
     print(base_dir)
-

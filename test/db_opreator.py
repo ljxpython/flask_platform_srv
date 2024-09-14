@@ -1,45 +1,50 @@
+import pymysql
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-import pymysql
-
 
 app = Flask(__name__)
 
-#设置连接数据库的URL
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:123456@localhost:3306/test'
+# 设置连接数据库的URL
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    "mysql+pymysql://root:123456@localhost:3306/test"
+)
 
-#设置每次请求结束后会自动提交数据库中的改动
-app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
+# 设置每次请求结束后会自动提交数据库中的改动
+app.config["SQLALCHEMY_COMMIT_ON_TEARDOWN"] = True
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
-#查询时会显示原始SQL语句
-app.config['SQLALCHEMY_ECHO'] = True
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
+# 查询时会显示原始SQL语句
+app.config["SQLALCHEMY_ECHO"] = True
 app.config["SECRET_KEY"] = "jjjsks"
 db = SQLAlchemy(app)
 
+
 class Role(db.Model):
     # 定义表名
-    __tablename__ = 'roles'
+    __tablename__ = "roles"
     # 定义列对象
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True)
-    us = db.relationship('User', backref='role')
+    us = db.relationship("User", backref="role")
 
-    #repr()方法显示一个可读字符串
+    # repr()方法显示一个可读字符串
     def __repr__(self):
-        return 'Role:%s'% self.name
+        return "Role:%s" % self.name
+
 
 class User(db.Model):
-    __tablename__ = 'users'
+    __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True, index=True)
-    email = db.Column(db.String(64),unique=True)
+    email = db.Column(db.String(64), unique=True)
     pswd = db.Column(db.String(64))
-    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
+    role_id = db.Column(db.Integer, db.ForeignKey("roles.id"))
 
     def __repr__(self):
-        return 'User:%s'%self.name
-if __name__ == '__main__':
+        return "User:%s" % self.name
+
+
+if __name__ == "__main__":
     # db.drop_all()
     db.create_all()
     # ro1 = Role(name='admin')

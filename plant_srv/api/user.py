@@ -1,15 +1,17 @@
-from flask import Blueprint, request, jsonify,g,session
-import jwt
 from functools import wraps
 
-from flask_jwt_extended import create_access_token
-from flask_jwt_extended import get_jwt_identity
-from flask_jwt_extended import jwt_required
-from flask_jwt_extended import JWTManager
+import jwt
+from flask import Blueprint, g, jsonify, request, session
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token,
+    get_jwt_identity,
+    jwt_required,
+)
 
+from conf.constants import Config
 from plant_srv.model.user import User
 from plant_srv.utils.log_moudle import logger
-from conf.constants import Config
 
 # 创建蓝图对象
 admin = Blueprint("admin", __name__)
@@ -24,44 +26,50 @@ def get_user_info():
     # return jsonify({"Result":list(users)}, status=200)
     return list(users)
 
+
 @admin.route("/user/<user>")
 def set(user):
     session["user"] = user
-    return {"user":user},200
+    return {"user": user}, 200
+
 
 @admin.route("/getuser")
 def getuser():
-    return {"user":session.get("user")},200
+    return {"user": session.get("user")}, 200
+
 
 @admin.route("/deluser")
 def deluser():
     # session.pop("user",None)
     session.clear()
-    return {"user":session.get("user")},200
+    return {"user": session.get("user")}, 200
+
 
 # 打印cookies
 @admin.route("/cookie")
 def cookie():
     logger.info(request.cookies)
-    return {"cookie":request.cookies},200
+    return {"cookie": request.cookies}, 200
+
 
 # 身份验证装饰器
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.args.get('token')
+        token = request.args.get("token")
 
         if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
+            return jsonify({"message": "Token is missing!"}), 403
 
         try:
             data = jwt.decode(token, Config.SECRET_KEY, algorithms=["HS256"])
         except:
-            return jsonify({'message': 'Token is invalid!'}), 403
+            return jsonify({"message": "Token is invalid!"}), 403
 
         return f(*args, **kwargs)
 
     return decorated
+
 
 # 注册路由
 # Create a route to authenticate your users and return JWTs. The
@@ -75,6 +83,7 @@ def login():
 
     access_token = create_access_token(identity=username)
     return jsonify(access_token=access_token)
+
 
 # # 登录路由
 # @admin.route('/login')
@@ -104,13 +113,9 @@ def login():
 #     except:
 #         return jsonify({'message': 'Token is invalid!'}), 403
 
+
 # 受保护的路由
-@admin.route('/protected')
+@admin.route("/protected")
 @jwt_required()
 def protected():
-    return jsonify({'message': 'Protected resource!'})
-
-
-
-
-
+    return jsonify({"message": "Protected resource!"})

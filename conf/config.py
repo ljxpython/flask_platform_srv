@@ -1,6 +1,7 @@
 """
     Dynaconf 初始配置
 """
+
 from pathlib import Path
 
 from dynaconf import Dynaconf

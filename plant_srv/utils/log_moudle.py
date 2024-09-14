@@ -21,8 +21,8 @@ import os
 import sys
 
 from loguru import logger
-from conf.constants import base_dir
 
+from conf.constants import base_dir
 
 ##日志存储地址
 # BASE_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -1,10 +1,10 @@
-from datetime import datetime
-from datetime import date
+from datetime import date, datetime
 
 from peewee import *
-from playhouse.shortcuts import ReconnectMixin
-from playhouse.pool import PooledMySQLDatabase
 from playhouse.mysql_ext import JSONField
+from playhouse.pool import PooledMySQLDatabase
+from playhouse.shortcuts import ReconnectMixin
+
 from conf.config import settings
 from plant_srv.utils.log_moudle import logger
 
@@ -14,26 +14,29 @@ dbconfig = settings.DB
 class ReconnectMySQLDatabase(ReconnectMixin, PooledMySQLDatabase):
     pass
 
+
 class BaseModel(Model):
     add_time = DateTimeField(default=datetime.now, verbose_name="添加时间")
     is_deleted = BooleanField(default=False, verbose_name="是否删除")
     update_time = DateTimeField(verbose_name="更新时间", default=datetime.now)
 
     def save(self, *args, **kwargs):
-        #判断这是一个新添加的数据还是更新的数据
+        # 判断这是一个新添加的数据还是更新的数据
         if self._pk is not None:
-            #这是一个新数据
+            # 这是一个新数据
             self.update_time = datetime.now()
         return super().save(*args, **kwargs)
 
     @classmethod
-    def delete(cls, permanently=False): #permanently表示是否永久删除
+    def delete(cls, permanently=False):  # permanently表示是否永久删除
         if permanently:
             return super().delete()
         else:
             return super().update(is_deleted=True)
 
-    def delete_instance(self, permanently=False, recursive=False, delete_nullable=False):
+    def delete_instance(
+        self, permanently=False, recursive=False, delete_nullable=False
+    ):
         if permanently:
             return self.delete(permanently).where(self._pk_expr()).execute()
         else:
@@ -42,10 +45,17 @@ class BaseModel(Model):
 
     @classmethod
     def select(cls, *fields):
-        return super().select(*fields).where(cls.is_deleted==False)
+        return super().select(*fields).where(cls.is_deleted == False)
 
     class Meta:
-        database = ReconnectMySQLDatabase(dbconfig.database, host=dbconfig.host, port=dbconfig.port, user=dbconfig.user, password=dbconfig.password)
+        database = ReconnectMySQLDatabase(
+            dbconfig.database,
+            host=dbconfig.host,
+            port=dbconfig.port,
+            user=dbconfig.user,
+            password=dbconfig.password,
+        )
+
 
 class Person(BaseModel):
     name = CharField()
@@ -53,12 +63,19 @@ class Person(BaseModel):
     is_relative = BooleanField()
     test_cha = CharField()
 
-database = ReconnectMySQLDatabase(dbconfig.database, host=dbconfig.host, port=dbconfig.port, user=dbconfig.user, password=dbconfig.password)
+
+database = ReconnectMySQLDatabase(
+    dbconfig.database,
+    host=dbconfig.host,
+    port=dbconfig.port,
+    user=dbconfig.user,
+    password=dbconfig.password,
+)
 
 # 实例化migrate对象
 # mgrt = SqliteMigrator(database)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # 创建表
     # p_info = Person.create_table()
     # logger.info(p_info)
@@ -70,8 +87,8 @@ if __name__ == '__main__':
     # p.save()
     # 查询
 
-    logger.info( Person.get(Person.name == 'lasd').birthday  )
-    res =Person.select().where(Person.name == "lasd").dicts()
+    logger.info(Person.get(Person.name == "lasd").birthday)
+    res = Person.select().where(Person.name == "lasd").dicts()
 
     logger.info(res)
     logger.info(Person.select().where(Person.name == "lasd"))
