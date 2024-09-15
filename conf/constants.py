@@ -61,7 +61,7 @@ class Config:
     # JWT配置秘钥
     JWT_SECRET_KEY = os.urandom(10)  # 加密
     # JWT配置过期时间
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)  # 1小时
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=6)  # 1小时
 
 
 # 开发环境

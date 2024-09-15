@@ -6,8 +6,11 @@ from flask_session import Session
 
 from conf.config import settings
 from conf.constants import config_map, redis_store
+from plant_srv.api import creat_blueprint
 from plant_srv.api.user import admin
+from plant_srv.utils.error_handle import init_error_exception
 from plant_srv.utils.log_moudle import logger
+from plant_srv.utils.middlewares import register_middlewares
 
 
 def create_app():
@@ -18,6 +21,9 @@ def create_app():
     CORS(
         app, resources={r"": {"origins": "*"}}, supports_credentials=True
     )  # 允许跨域请求
+    init_error_exception(app)
+    register_middlewares(app)
     # 注册蓝图
-    app.register_blueprint(admin, url_prefix="/")
+    # app.register_blueprint(admin, url_prefix="/")
+    app.register_blueprint(creat_blueprint(), url_prefix="/api")
     return app

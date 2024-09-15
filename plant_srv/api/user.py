@@ -11,6 +11,8 @@ from flask_jwt_extended import (
 
 from conf.constants import Config
 from plant_srv.model.user import User
+from plant_srv.utils.error_handle import UserException
+from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
 
 # 创建蓝图对象
@@ -24,7 +26,7 @@ def get_user_info():
     users = User.select().dicts()
     logger.info(users)
     # return jsonify({"Result":list(users)}, status=200)
-    return list(users)
+    return JsonResponse(data=list(users)).response()
 
 
 @admin.route("/user/<user>")
@@ -80,9 +82,23 @@ def login():
     password = request.json.get("password", None)
     if username != "test" or password != "test":
         return jsonify({"msg": "Bad username or password"}), 401
-
+    # 之后把用户数据存储到session中
+    session["user"] = username
     access_token = create_access_token(identity=username)
+    logger.info(access_token)
     return jsonify(access_token=access_token)
+
+
+# 触发异常
+@admin.route("/error", methods=["POST"])
+def error():
+    raise UserException(msg="调试问题", http_code=417)
+
+
+@admin.before_request
+def before_request():
+    # 有了jwt这种鉴权方式后,就不太需要前置request中做限制了,我们反而需要后置中,把格式考虑好
+    logger.info(f"admin bedore request")
 
 
 # # 登录路由
@@ -118,4 +134,5 @@ def login():
 @admin.route("/protected")
 @jwt_required()
 def protected():
+    logger.info(get_jwt_identity())
     return jsonify({"message": "Protected resource!"})
