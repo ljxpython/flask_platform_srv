@@ -41,7 +41,7 @@ def init_error_exception(app):
     @app.errorhandler(Exception)
     def server_exception(exception):
         logger.info(exception)
-        return jsonify({"code": -1, "msg": "内部错误"}), ERROR_HTTP_CODE
+        return jsonify({"code": -1, "msg": f"内部错误:{exception}"}), ERROR_HTTP_CODE
 
     @app.errorhandler(UserException)
     def user_exception(exception):

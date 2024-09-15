@@ -11,5 +11,5 @@ __author__ = "JiaXin Li"
 
 def creat_blueprint():
     api = Blueprint("api", __name__)
-    api.register_blueprint(user.admin)
+    api.register_blueprint(user.admin, url_prefix="/user")
     return api

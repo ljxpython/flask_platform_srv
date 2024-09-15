@@ -32,7 +32,15 @@ class JsonResponse:
     def to_json(self):
         return jsonify(self.to_dict())
 
-    def response(self):
+    # 增加headers及data参数的修改
+    def response(self, add_haders: dict = None):
         response = make_response(self.to_json(), self.code.value)
+        if add_haders is not None:
+            response.headers.update(add_haders)
+        # 如果response的请求的方式是post,增加Content-Type = "application/json"
         # response.headers["Content-Type"] = "application/json"
         return response
+
+    # 添加一个常用的成功返回
+    def sucess(self):
+        return self.response()
