@@ -43,6 +43,7 @@ isort = "^5.13.2"
 pre-commit = "^3.8.0"
 passlib = "^1.7.4"
 flask-restful = "^0.3.10"
+flasgger = "0.9.7b2"
 
 
 [build-system]

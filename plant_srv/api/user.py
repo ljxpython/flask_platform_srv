@@ -21,13 +21,32 @@ admin = Blueprint("admin", __name__)
 
 
 # 获取当前用户信息
-@admin.route("/user/info", methods=["GET"])
+@admin.route("/currentUser", methods=["GET"])
+@jwt_required()
 def get_user_info():
-    # 获取当前用户
-    users = User.select().dicts()
-    logger.info(users)
+    # 从session中获取当前用户
+    name_session = session.get("user", None)
+    logger.info(name_session)
+    name_session = ""
+    # 从jwt的信息中识别user
+    name_jwt = get_jwt_identity()
+    logger.info(f"user: {name_jwt}")
+    # 如果name,name_jwt都不存在,则抛出异常
+    if name_session is None and name_jwt is None:
+        raise UserException("User not found")
+    #
+    name = name_session if name_session else name_jwt
+    # 如果存在,则从数据库中把用户详细信息展示出来
+    user = User.get(name=name)
+    logger.info(f"name:{user.name},id:{user.id}")
     # return jsonify({"Result":list(users)}, status=200)
-    return JsonResponse(data=list(users)).response()
+    data = {
+        "name": user.name,
+        "userid": user.id,
+        "avatar": "https://gw.alipayobjects.com/zos/rmsportal/BiazfanxmamNRoxxVxka.png",
+        "email": "antdesign@alipay.com",
+    }
+    return JsonResponse(data=data).response()
 
 
 # 用户注册
@@ -81,7 +100,7 @@ def login():
     access_token = create_access_token(identity=username)
     logger.info(access_token)
     # return jsonify(access_token=access_token)
-    return JsonResponse(data={"success": True}).response(
+    return JsonResponse(data={"success": True, "token": access_token}).response(
         add_haders={"Authorization": f"Bearer {access_token}"}
     )
 

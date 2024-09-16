@@ -1,5 +1,6 @@
 import redis
-from flask import Flask
+from flasgger import LazyJSONEncoder, LazyString, Swagger
+from flask import Flask, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_session import Session
@@ -23,6 +24,20 @@ def create_app():
     )  # 允许跨域请求
     init_error_exception(app)
     register_middlewares(app)
+    # Set the custom Encoder (Inherit it if you need to customize)
+    app.json_encoder = LazyJSONEncoder
+    template = dict(
+        info={
+            "title": LazyString(lambda: "Lazy Title"),
+            "version": LazyString(lambda: "99.9.9"),
+            "description": LazyString(lambda: "Hello Lazy World"),
+            "termsOfService": LazyString(lambda: "/there_is_no_tos"),
+        },
+        host=LazyString(lambda: request.host),
+        schemes=[LazyString(lambda: "https" if request.is_secure else "http")],
+        foo=LazyString(lambda: "Bar"),
+    )
+    Swagger(app, template=template)
     # 注册蓝图
     # app.register_blueprint(admin, url_prefix="/")
     app.register_blueprint(creat_blueprint(), url_prefix="/api")
