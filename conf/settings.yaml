@@ -10,6 +10,8 @@ boe:
 
 
 online:
+  avatar: 'https://gw.alipayobjects.com/zos/rmsportal/BiazfanxmamNRoxxVxka.png'
+  access: 0
   DB:
     host: localhost
     password: boe

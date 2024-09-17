@@ -10,6 +10,7 @@ from flask_jwt_extended import (
 )
 from passlib.hash import pbkdf2_sha256
 
+from conf.config import settings
 from conf.constants import Config
 from plant_srv.model.user import User
 from plant_srv.utils.error_handle import UserException
@@ -25,7 +26,7 @@ admin = Blueprint("admin", __name__)
 @jwt_required()
 def get_user_info():
     # 从session中获取当前用户
-    name_session = session.get("user", None)
+    name_session = session.get("user")
     logger.info(name_session)
     name_session = ""
     # 从jwt的信息中识别user
@@ -38,13 +39,13 @@ def get_user_info():
     name = name_session if name_session else name_jwt
     # 如果存在,则从数据库中把用户详细信息展示出来
     user = User.get(name=name)
-    logger.info(f"name:{user.name},id:{user.id}")
+    logger.info(f"name:{user.name},id:{user.userid}")
     # return jsonify({"Result":list(users)}, status=200)
     data = {
         "name": user.name,
-        "userid": user.id,
-        "avatar": "https://gw.alipayobjects.com/zos/rmsportal/BiazfanxmamNRoxxVxka.png",
-        "email": "antdesign@alipay.com",
+        "userid": user.userid,
+        "avatar": user.avatar,
+        "email": user.email,
     }
     return JsonResponse(data=data).response()
 
@@ -52,6 +53,9 @@ def get_user_info():
 # 用户注册
 @admin.route("/register", methods=["POST"])
 def register_user():
+    """
+    注,这部分应该使用flask-WTF的表单校验更加高效的,但是时间原因,这部分放到未来完成
+    """
     data = request.get_json()
     # 获取需要注册的用户名
     user_name = data.get("username")
@@ -66,8 +70,20 @@ def register_user():
     if res is None:
         # 对密码进行加密,存入到数据库中
         hash = pbkdf2_sha256.hash(password)
+        # 获取用户头像图标,如果没有赋值一个默认图标
+        avatar = data.get("avatar", None)
+        if not avatar:
+            avatar = settings.avatar
+        # 获取用户权限登记
+        access = data.get("access", None)
+        if not access:
+            access = settings.access
+        # 获取用户email
+        email = data.get("email", None)
         # 存储到数据库中
-        user = User.create(name=user_name, password=hash)
+        user = User.create(
+            name=user_name, password=hash, avatar=avatar, access=access, email=email
+        )
         user.save()
     else:
         # 抛出用户名重复的错误
