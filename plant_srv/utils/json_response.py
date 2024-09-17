@@ -129,7 +129,7 @@ class JsonResponse:
 
     @classmethod
     def response(
-        cls, data: dict = None, code: int = None, headers: dict = None, **kwargs
+        cls, data: dict | list = None, code: int = None, headers: dict = None, **kwargs
     ):
         if code is None:
             code = cls.code.value
@@ -140,7 +140,7 @@ class JsonResponse:
 
     # 添加一个常用的成功返回
     @classmethod
-    def success_response(cls, headers: dict = None, data: dict = None, **kwargs):
+    def success_response(cls, headers: dict = None, data: dict | list = None, **kwargs):
         # data及**kwargs中的数据存到到一个字典中
         respose_dict = {"data": data}
         respose_dict.update(**kwargs)
@@ -149,7 +149,7 @@ class JsonResponse:
 
     # 一个常用的失败的返回
     @classmethod
-    def error_response(cls, headers: dict = None, data: dict = None, **kwargs):
+    def error_response(cls, headers: dict | list = None, data: dict = None, **kwargs):
         data = {
             "data": data,
             "success": False,
@@ -176,7 +176,6 @@ class JsonResponse:
         return cls.response(data=data, headers=header, **kwargs)
 
     # 一般常用的是成功的返回,因为,把他用Python的魔法函数__call__来表示,这样更加简洁
-    @classmethod
     def __call__(
         cls, data: dict = None, code: int = None, headers: dict = None, **kwargs
     ):
