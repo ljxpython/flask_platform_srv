@@ -47,7 +47,8 @@ def get_user_info():
         "avatar": user.avatar,
         "email": user.email,
     }
-    return JsonResponse(data=data).response()
+    # return JsonResponse()(data=data)
+    return JsonResponse().success_response(data=data)
 
 
 # 用户注册
@@ -88,7 +89,8 @@ def register_user():
     else:
         # 抛出用户名重复的错误
         raise UserException("User already exists")
-    return JsonResponse(data={"success": True}).response()
+    # return JsonResponse().success_response(data=data)
+    return JsonResponse.success_response(data=data)
 
 
 # 注册路由
@@ -115,9 +117,10 @@ def login():
     session["user"] = username
     access_token = create_access_token(identity=username)
     logger.info(access_token)
-    # return jsonify(access_token=access_token)
-    return JsonResponse(data={"success": True, "token": access_token}).response(
-        add_haders={"Authorization": f"Bearer {access_token}"}
+    return JsonResponse()(
+        data={"token": access_token},
+        headers={"Authorization": "Bearer " + access_token},
+        msg=f"user: {username} is login",
     )
 
 
@@ -126,7 +129,8 @@ def login():
 def logout():
     # 这里面登出还应该做一步,把jwt的鉴权放入黑名单中,但是测试我暂时先不做这部分处理,相关方法我放到自己的文档中,待未来优化
     session.clear()
-    return JsonResponse(data={"success": True}).response()
+    # return JsonResponse(data={"success": True}).response()
+    return JsonResponse.success_response()
 
 
 @admin.route("/user/<user>")

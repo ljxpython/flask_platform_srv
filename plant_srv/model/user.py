@@ -6,7 +6,7 @@ from plant_srv.utils.log_moudle import logger
 
 class User(BaseModel):
     # 主键,自动增长
-    userid = IntegerField(unique=True, index=True, primary_key=True)
+    userid = AutoField()  # 设置自动递增组件
     name = CharField(unique=True)
     password = CharField()
     # 权限，0为普通用户，1为管理员
