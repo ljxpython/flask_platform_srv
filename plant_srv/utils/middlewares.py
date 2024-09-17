@@ -14,6 +14,7 @@ def register_middlewares(app):
 
     @app.before_request
     def before_request():
+        logger.info(f"连接数据库")
         database.connect()
 
     @app.after_request
@@ -27,3 +28,4 @@ def register_middlewares(app):
     def _db_close(exc):
         if not database.is_closed():
             database.close()
+            logger.info(f"与数据库断开连接")
