@@ -42,8 +42,8 @@ def add_good():
 @goods.route("/get/by", methods=["GET"])
 def get_by_id():
     goods = Goods.select()
-    if request.args.get("id"):
-        goods = goods.where(Goods.goodid == request.args.get("id"))
+    if request.args.get("goodid"):
+        goods = goods.where(Goods.goodid == request.args.get("goodid"))
     if request.args.get("name"):
         goods = goods.where(Goods.name == request.args.get("name"))
     if request.args.get("price"):
@@ -71,6 +71,40 @@ def get_by_id():
         total=total,
         page_size=per_page_nums,
     )
+
+
+# 更新商品信息
+@goods.route("/update", methods=["POST"])
+def update_good():
+    data = request.get_json()
+    good = Goods.get(Goods.goodid == data["goodid"])
+    if data.get("price"):
+        good.price = data["price"]
+    if data.get("description"):
+        good.description = data["description"]
+    if data.get("name"):
+        good.name = data["name"]
+    if data.get("image"):
+        good.image = data["image"]
+    if data.get("type"):
+        good.type = data["type"]
+    if data.get("subtype"):
+        good.subtype = data["subtype"]
+    if data.get("status"):
+        good.status = data["status"]
+    good.save()
+    # 把修改之后的信息输出到结果中
+    good_dict = good_info(good=good)
+    return JsonResponse.success_response(data=good_dict)
+
+
+# 删除商品信息
+@goods.route("/delete", methods=["POST"])
+def delete_good():
+    data = request.get_json()
+    good = Goods.get(Goods.goodid == data["goodid"])
+    good.delete_instance()
+    return JsonResponse.success_response(data={"msg": "删除成功"})
 
 
 # 单个商品详细信息
