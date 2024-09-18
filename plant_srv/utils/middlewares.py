@@ -15,7 +15,7 @@ def register_middlewares(app):
     @app.before_request
     def before_request():
         logger.info(f"连接数据库")
-        database.connect()
+        # database.connect()
 
     @app.after_request
     def after_request(response):
@@ -24,8 +24,8 @@ def register_middlewares(app):
         # logger.info(response.__dict__)  # 打印response的所有属性和放啊
         return response
 
-    @app.teardown_request
-    def _db_close(exc):
-        if not database.is_closed():
-            database.close()
-            logger.info(f"与数据库断开连接")
+    # @app.teardown_request
+    # def _db_close(exc):
+    #     if not database.is_closed():
+    #         database.close()
+    #         logger.info(f"与数据库断开连接")
