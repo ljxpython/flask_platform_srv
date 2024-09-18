@@ -11,7 +11,7 @@ from plant_srv.utils.log_moudle import logger
 dbconfig = settings.DB
 
 
-class ReconnectMySQLDatabase(ReconnectMixin, PooledMySQLDatabase):
+class ReconnectMySQLDatabase(ReconnectMixin,PooledMySQLDatabase):
     pass
 
 

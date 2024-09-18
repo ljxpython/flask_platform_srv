@@ -63,7 +63,7 @@ def get_by_id():
     logger.info(goods.count())
     good_list = []
     for good in goods:
-        logger.debug(good_info(good=good))
+        # logger.debug(good_info(good=good))
         good_list.append(good_info(good=good))
     return JsonResponse.list_response(
         list_data=good_list,
