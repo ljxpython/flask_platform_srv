@@ -41,14 +41,29 @@ def get_user_info():
     user = User.get(name=name)
     logger.info(f"name:{user.name},id:{user.userid}")
     # return jsonify({"Result":list(users)}, status=200)
-    data = {
+    # data = {
+    #     "name": user.name,
+    #     "userid": user.userid,
+    #     "avatar": user.avatar,
+    #     "email": user.email,
+    # }
+    data = user_info(user)
+    # return JsonResponse()(data=data)
+    return JsonResponse().success_response(data=data)
+
+def user_info(user: User):
+    """
+    获取用户信息
+    :param user: 用户对象
+    :return: 用户信息
+    """
+    return {
         "name": user.name,
         "userid": user.userid,
         "avatar": user.avatar,
         "email": user.email,
+        "access": user.access,
     }
-    # return JsonResponse()(data=data)
-    return JsonResponse().success_response(data=data)
 
 
 # 用户注册
