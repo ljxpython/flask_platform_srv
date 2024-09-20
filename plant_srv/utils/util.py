@@ -16,8 +16,6 @@ import requests
 from conf.config import settings
 from plant_srv.utils.log_moudle import logger
 
-config = settings.client_config
-
 
 def wait_for(condition: Callable, timeout: int = 30, interval: int = 1):
     start_time = time.time()
@@ -29,12 +27,6 @@ def wait_for(condition: Callable, timeout: int = 30, interval: int = 1):
         if run_time >= timeout:
             return
         time.sleep(interval)
-
-
-def step_sleep(secs: float = settings.step_sleep):
-    if secs and secs > 0:
-        logger.info("Test step sleep {n} seconds", n=secs)
-        time.sleep(secs)
 
 
 def remove_empty_values(
@@ -148,21 +140,6 @@ def get_radmon_str(
 
     random_string = "".join(random.choices(characters, k=length - prefix_len))
     return prefix + random_string
-
-
-def correct_key(key: str):
-    """
-    根据is_camel_case将key转化
-    """
-    if config.is_camel_case:
-        # 小驼峰
-        if humps.is_snakecase(key):
-            return to_camel_case(key)
-        return key
-    # 大驼峰
-    if humps.is_pascalcase(key):
-        return to_snake_case(key)
-    return key
 
 
 def write_properties_file(filename: str, properties: dict):

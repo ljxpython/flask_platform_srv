@@ -4,7 +4,7 @@
 
 from flask import Blueprint
 
-from plant_srv.api import goods, user
+from plant_srv.api import goods, uploadfile, user
 
 __author__ = "JiaXin Li"
 
@@ -13,4 +13,5 @@ def creat_blueprint():
     api = Blueprint("api", __name__)
     api.register_blueprint(user.admin, url_prefix="/user")
     api.register_blueprint(goods.goods, url_prefix="/goods")
+    api.register_blueprint(uploadfile.file, url_prefix="/uploadfile")
     return api

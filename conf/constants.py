@@ -62,6 +62,9 @@ class Config:
     JWT_SECRET_KEY = os.urandom(10)  # 加密
     # JWT配置过期时间
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=6)  # 1小时
+    UPLOAD_FOLDER = "./logs"
+    ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg", "gif"}
+    MAX_CONTENT_PATH = 16 * 1024 * 1024  # 限制上传文件大小为16M
 
 
 # 开发环境
