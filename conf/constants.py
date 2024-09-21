@@ -65,6 +65,12 @@ class Config:
     UPLOAD_FOLDER = "./logs"
     ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg", "gif"}
     MAX_CONTENT_PATH = 16 * 1024 * 1024  # 限制上传文件大小为16M
+    # celery 相关的配置存放到utils/celery文件内
+    # CELERY = dict(
+    #     broker_url=f"redis://:{settings.redis.password}@{settings.redis.host}:{settings.redis.port}",
+    #     result_backend=f"redis://:{settings.redis.password}@{settings.redis.host}:{settings.redis.port}",
+    #     task_ignore_result=False,
+    # )
 
 
 # 开发环境

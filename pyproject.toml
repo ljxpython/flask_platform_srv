@@ -46,6 +46,7 @@ flask-restful = "^0.3.10"
 flasgger = "0.9.7b2"
 humps = "^0.2.2"
 requests = "^2.32.3"
+celery = "^5.4.0"
 
 
 [build-system]
