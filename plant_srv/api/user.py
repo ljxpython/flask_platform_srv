@@ -26,27 +26,21 @@ admin = Blueprint("admin", __name__)
 @jwt_required()
 def get_user_info():
     # 从session中获取当前用户
-    name_session = session.get("user")
-    logger.info(name_session)
-    name_session = ""
+    # name_session = session.get("user")
+    # logger.info(name_session)
+    # name_session = ""
     # 从jwt的信息中识别user
     name_jwt = get_jwt_identity()
     logger.info(f"user: {name_jwt}")
     # 如果name,name_jwt都不存在,则抛出异常
-    if name_session is None and name_jwt is None:
-        raise UserException("User not found")
-    #
-    name = name_session if name_session else name_jwt
+    # if name_session is None and name_jwt is None:
+    #     raise UserException("User not found")
+    # #
+    # name = name_session if name_session else name_jwt
+    name = name_jwt
     # 如果存在,则从数据库中把用户详细信息展示出来
     user = User.get(name=name)
     logger.info(f"name:{user.name},id:{user.userid}")
-    # return jsonify({"Result":list(users)}, status=200)
-    # data = {
-    #     "name": user.name,
-    #     "userid": user.userid,
-    #     "avatar": user.avatar,
-    #     "email": user.email,
-    # }
     data = user_info(user)
     # return JsonResponse()(data=data)
     return JsonResponse().success_response(data=data)
