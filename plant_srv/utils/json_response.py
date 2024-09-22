@@ -168,7 +168,7 @@ class JsonResponse:
         **kwargs
     ):
         data = {
-            "list": list_data,
+            "data": list_data,
             "current": current_page,
             "pageSize": page_size,
             "total": total,
