@@ -27,7 +27,9 @@ settings_yaml = os.path.join(conf_dir, "settings.yaml")
 common_dir = os.path.join(base_dir, "common")
 
 utils_dir = os.path.join(base_dir, "cube_test", "utils")
-template_dir = os.path.join(utils_dir, "create_test_template")
+
+reports_dir = os.path.join(base_dir, "reports")
+template_dir = os.path.join(base_dir, "report", "templates")
 
 data_dir = os.path.join(base_dir, "data")
 
@@ -100,5 +102,6 @@ config_map = {"develop": DevelopmentConfig, "product": ProductionConfig}
 
 
 if __name__ == "__main__":
-    print(os.path.abspath(""))
-    print(base_dir)
+    # print(os.path.abspath(""))
+    # print(base_dir)
+    print(template_dir)

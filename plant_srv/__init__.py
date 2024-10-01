@@ -23,7 +23,9 @@ def create_app():
     CORS(
         app, resources={r"": {"origins": "*"}}, supports_credentials=True
     )  # 允许跨域请求
-    init_error_exception(app)
+    # 线上环境开启异常
+    if settings.node == "online":
+        init_error_exception(app)
     register_middlewares(app)
     celery_init_app(app)
     # Set the custom Encoder (Inherit it if you need to customize)

@@ -4,7 +4,7 @@
 
 from flask import Blueprint
 
-from plant_srv.api import goods, uploadfile, user,async_task
+from plant_srv.api import goods, uploadfile, user,async_task,auto_pytest
 
 __author__ = "JiaXin Li"
 
@@ -15,4 +15,5 @@ def creat_blueprint():
     api.register_blueprint(goods.goods, url_prefix="/goods")
     api.register_blueprint(uploadfile.file, url_prefix="/uploadfile")
     api.register_blueprint(async_task.async_task, url_prefix="/async_task")
+    api.register_blueprint(auto_pytest.auto_pytest, url_prefix="/auto_pytest")
     return api
