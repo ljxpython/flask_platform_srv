@@ -149,7 +149,7 @@ class JsonResponse:
 
     # 一个常用的失败的返回
     @classmethod
-    def error_response(cls, headers: dict | list = None, data: dict = None, **kwargs):
+    def error_response(cls, headers: dict | list = None, data: dict|list|str = None, **kwargs):
         data = {
             "data": data,
             "success": False,

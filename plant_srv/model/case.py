@@ -58,13 +58,15 @@ class Suite(BaseModel):
 
 
 class TestResult(BaseModel):
-  id = AutoField(primary_key=True)
-  # 外键 suite_id
+  # id = AutoField(primary_key=True)
+  # 标题
+  title = CharField(max_length=100, null=True, verbose_name="测试报告标题")
+  # 外键 suite_name
   suite_name = ForeignKeyField(Suite, verbose_name="suite_name")
   # 运行的状态
-  status = IntegerField(null=False, default=0,verbose_name="运行状态")
+  status = IntegerField(null=True, default=0,verbose_name="运行状态")
   # 测试结果 成功,失败,部分失败
-  result = CharField(max_length=100, null=False, verbose_name="测试结果")
+  result = CharField(max_length=100, null=True, verbose_name="测试结果")
   # 测试报告链接
   report_link = CharField(max_length=100, null=True, verbose_name="测试报告链接")
   # 测试报告下载地址
@@ -84,8 +86,8 @@ if __name__ == '__main__':
     # # database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestResult, CaseTag])
     # # 删除表
     TestResult.drop_table()
-    Suite.drop_table()
-    Project.drop_table()
+    # Suite.drop_table()
+    # Project.drop_table()
     # 创建表
     database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestResult, CaseTag])
 

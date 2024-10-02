@@ -277,22 +277,24 @@ def create_suite():
     case_ids = data.get("case_ids")
     test_type = data.get("test_type")
     test_env = data.get("test_env")
+    logger.info(f"suite_name:{suite_name},project_name:{project_name}")
     if not suite_name:
-        return JsonResponse.error_response(msg="测试套件名称不能为空")
+        return JsonResponse.error_response(data="测试套件名称不能为空")
     if not project_name:
-        return JsonResponse.error_response(msg="测试项目不能为空")
+        return JsonResponse.error_response(data="测试项目不能为空")
     if not case_ids:
-        return JsonResponse.error_response(msg="测试用例不能为空")
+        return JsonResponse.error_response(data="测试用例不能为空")
     if not test_type:
-        return JsonResponse.error_response(msg="测试类型不能为空")
+        return JsonResponse.error_response(data="测试类型不能为空")
     if not test_env:
-        return JsonResponse.error_response(msg="测试环境不能为空")
+        return JsonResponse.error_response(data="测试环境不能为空")
     project = Project().get_or_none(project_name=project_name)
     if not project:
-        return JsonResponse.error_response(msg="测试项目不存在")
+        return JsonResponse.error_response(data="测试项目不存在")
     if Suite().get_or_none(suite_name=suite_name):
-        return JsonResponse.error_response(msg="测试套件已经存在")
-    suite = Suite.create(suite_name=suite_name, project=project, describe=describe, test_type=test_type, test_env=test_env)
+        return JsonResponse.error_response(data="测试套件已经存在")
+    logger.info(f"创建测试套件: {suite_name}")
+    suite = Suite.create(suite_name=suite_name, project_name=project_name, describe=describe, test_type=test_type, test_env=test_env)
     suite.case_ids = case_ids
     suite.save()
     return JsonResponse.success_response(data={"suite": model_to_dict(suite,exclude=[Suite.is_deleted])}, msg="创建测试套件成功")
@@ -344,14 +346,14 @@ def update_suite():
     test_type = data.get("test_type")
     test_env = data.get("test_env")
     if not suite_name:
-        return JsonResponse.error_response(msg="测试套件名称不能为空")
+        return JsonResponse.error_response(data="测试套件名称不能为空")
     suite = Suite().get_or_none(suite_name=suite_name)
     if not suite:
-        return JsonResponse.error_response(msg="测试套件不存在")
+        return JsonResponse.error_response(data="测试套件不存在")
     if project_name:
         project = Project().get_or_none(project_name=project_name)
         if not project:
-            return JsonResponse.error_response(msg="测试项目不存在")
+            return JsonResponse.error_response(data="测试项目不存在")
         suite.project = project
     if describe:
         suite.describe = describe
@@ -369,33 +371,37 @@ def delete_suite():
     data = request.get_json()
     suite_name = data.get("suite_name")
     if not suite_name:
-        return JsonResponse.error_response(msg="测试套件名称不能为空")
+        return JsonResponse.error_response(data="测试套件名称不能为空")
     suite = Suite().get_or_none(suite_name=suite_name)
     if not suite:
-        return JsonResponse.error_response(msg="测试套件不存在")
+        return JsonResponse.error_response(data="测试套件不存在")
     suite.delete_instance()
     return JsonResponse.success_response(msg="删除测试套件成功")
 
 # 根据suite_name创建测试
-@auto_pytest.route('/create_case', methods=['POST'])
-def create_case():
+@auto_pytest.route('/create_case_result', methods=['POST'])
+def create_case_result():
     data = request.get_json()
-    suite_name = data.get("suite_id")
+    suite_name = data.get("suite_name")
     status = data.get("status")
     result = data.get("result")
     report_link = data.get("report_link")
     report_download = data.get("report_download")
     last_report_id = data.get("last_report_id")
     if not suite_name:
-        return JsonResponse.error_response(msg="测试套件名称不能为空")
+        return JsonResponse.error_response(data="测试套件名称不能为空")
+    # 如果测试套件不存在Suite表,报错
+    suite = Suite().get_or_none(suite_name=suite_name)
+    if not suite:
+        return JsonResponse.error_response(data="测试套件不存在")
     case = TestResult.create(suite_name=suite_name, status=status, result=result, report_link=report_link, report_download=report_download, last_report_id=last_report_id)
     # 返回创建的id
     id = case.id
     return JsonResponse.success_response(data={"id": id}, msg="创建测试成功")
 
 # 根据id,suite_name,status,result,获取测试
-@auto_pytest.route('/get_case', methods=['GET'])
-def get_case():
+@auto_pytest.route('/get_case_result', methods=['GET'])
+def get_case_result():
     cases = TestResult.select()
     suite_name = request.args.get("suite_name")
     status = request.args.get("status")
@@ -418,15 +424,16 @@ def get_case():
     if request.args.get("current"):
         start = per_page_nums * (int(request.args.get("current")) - 1)
     total = cases.count()
-    suites = cases.limit(per_page_nums).offset(start)
-    for suite in suites:
-        cases.append(model_to_dict(suite, exclude=[TestResult.is_deleted]))
+    cases = cases.limit(per_page_nums).offset(start)
+    for case in cases:
+        logger.info(case.suite_name)
+        case_list.append(model_to_dict(case, exclude=[TestResult.is_deleted],backrefs=False,recurse=False))
     return JsonResponse.list_response(
         list_data=case_list, total=total,current_page=start+1, page_size=per_page_nums
     )
 # 更新测试
-@auto_pytest.route('/update_case', methods=['POST'])
-def update_case():
+@auto_pytest.route('/update_case_result', methods=['POST'])
+def update_case_result():
     data = request.get_json()
     id_ = data.get("id")
     suite_name = data.get("suite_name")
@@ -436,10 +443,10 @@ def update_case():
     report_download = data.get("report_download")
     last_report_id = data.get("last_report_id")
     if not id_:
-        return JsonResponse.error_response(msg="测试id不能为空")
+        return JsonResponse.error_response(data="测试id不能为空")
     case = TestResult.get_or_none(id=id_)
     if not case:
-        return JsonResponse.error_response(msg="测试不存在")
+        return JsonResponse.error_response(data="测试不存在")
     if suite_name:
         case.suite_name = suite_name
     if status:
@@ -455,15 +462,15 @@ def update_case():
     case.save()
     return JsonResponse.success_response(msg="更新测试成功")
 # 根据id删除测试
-@auto_pytest.route('/delete_case', methods=['POST'])
-def delete_case():
+@auto_pytest.route('/delete_case_result', methods=['POST'])
+def delete_case_result():
     data = request.get_json()
     id_ = data.get("id")
     if not id_:
-        return JsonResponse.error_response(msg="测试id不能为空")
+        return JsonResponse.error_response(data="测试id不能为空")
     case = TestResult.get_or_none(id=id_)
     if not case:
-        return JsonResponse.error_response(msg="测试不存在")
+        return JsonResponse.error_response(data="测试不存在")
     case.delete_instance()
     return JsonResponse.success_response(msg="删除测试成功")
 
