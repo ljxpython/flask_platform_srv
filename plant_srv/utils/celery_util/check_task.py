@@ -1,5 +1,7 @@
 from celery.result import AsyncResult
 
+from plant_srv.utils.log_moudle import logger
+
 
 def task_result(id: str) -> dict[str, object]:
     result = AsyncResult(id)
@@ -7,12 +9,13 @@ def task_result(id: str) -> dict[str, object]:
         "task_id": id,
         'type': result.status,
         'msg': '',
-        'data': result.result if result.ready() else None,
+        'data': str(result.result) if result.ready() else None,
         # 'code': result.,
         "ready": result.ready(),
         "successful": result.successful(),
         # "value": result.result if result.ready() else None,
     }
+    logger.info(result)
     if result.status == 'PENDING':
         dic['msg'] = '任务等待中'
     elif result.status == 'STARTED':

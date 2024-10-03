@@ -42,5 +42,6 @@ def get_result():
     if not task_id:
         raise UserException('参数错误')
     data = task_result(task_id)
+    logger.info(data)
     return JsonResponse.success_response(data=data)
 

@@ -25,8 +25,8 @@ task_module = [
 
 # celery 配置文件
 celery_config = {
-    "broker_url":  f"redis://:{settings.redis.password}@{settings.redis.host}:{settings.redis.port}",
-    "result_backend": f"redis://:{settings.redis.password}@{settings.redis.host}:{settings.redis.port}",
+    "broker_url":  f"redis://:{settings.redis.password}@{settings.redis.host}:{settings.redis.port}/2",
+    "result_backend": f"redis://:{settings.redis.password}@{settings.redis.host}:{settings.redis.port}/3",
     "task_ignore_result" : False,
     "result_expires" : 1*60*60,
     "task_serializer": 'json',
@@ -34,5 +34,6 @@ celery_config = {
     "accept_content": ['json'],
     "timezone": 'Asia/Shanghai',
     "enable_utc": False,
-    "beat_schedule":{}
+    "beat_schedule":{},
+    "broker_connection_retry": True,
 }

@@ -140,7 +140,7 @@ class JsonResponse:
 
     # 添加一个常用的成功返回
     @classmethod
-    def success_response(cls, headers: dict = None, data: dict | list = None, **kwargs):
+    def success_response(cls, headers: dict = None, data: dict | list | str = None, **kwargs):
         # data及**kwargs中的数据存到到一个字典中
         respose_dict = {"data": data}
         respose_dict.update(**kwargs)

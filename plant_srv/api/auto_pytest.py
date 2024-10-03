@@ -7,16 +7,17 @@ from flask_jwt_extended import (
     jwt_required,
 )
 import os
+from datetime import datetime
 
 from playhouse.shortcuts import model_to_dict
 from conf.constants import Config, template_dir,reports_dir
 from plant_srv.model.async_task import AsyncTask
-from plant_srv.model.case import CaseMoudle, CaseFunc,Project,Suite, TestResult, CaseTag
+from plant_srv.model.case import CaseMoudle, CaseFunc,Project,Suite, TestResult, CaseTag,TestPlan
 from plant_srv.utils.error_handle import UserException
 from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
 from plant_srv.utils.anlaysis import get_classes_methods_and_module_doc
-from plant_srv.utils.celery_util.task.task_demo import add_together
+from plant_srv.utils.celery_util.task.openapi_task import run_openapi_test
 from plant_srv.utils.celery_util.check_task import task_result
 from plant_srv.utils.file_operation import file_opreator
 from conf.config import settings
@@ -275,8 +276,8 @@ def create_suite():
     project_name = data.get("project_name")
     describe = data.get("describe")
     case_ids = data.get("case_ids")
-    test_type = data.get("test_type")
-    test_env = data.get("test_env")
+    # test_type = data.get("test_type")
+    # test_env = data.get("test_env")
     logger.info(f"suite_name:{suite_name},project_name:{project_name}")
     if not suite_name:
         return JsonResponse.error_response(data="测试套件名称不能为空")
@@ -284,17 +285,17 @@ def create_suite():
         return JsonResponse.error_response(data="测试项目不能为空")
     if not case_ids:
         return JsonResponse.error_response(data="测试用例不能为空")
-    if not test_type:
-        return JsonResponse.error_response(data="测试类型不能为空")
-    if not test_env:
-        return JsonResponse.error_response(data="测试环境不能为空")
+    # if not test_type:
+    #     return JsonResponse.error_response(data="测试类型不能为空")
+    # if not test_env:
+    #     return JsonResponse.error_response(data="测试环境不能为空")
     project = Project().get_or_none(project_name=project_name)
     if not project:
         return JsonResponse.error_response(data="测试项目不存在")
     if Suite().get_or_none(suite_name=suite_name):
         return JsonResponse.error_response(data="测试套件已经存在")
     logger.info(f"创建测试套件: {suite_name}")
-    suite = Suite.create(suite_name=suite_name, project_name=project_name, describe=describe, test_type=test_type, test_env=test_env)
+    suite = Suite.create(suite_name=suite_name, project_name=project_name, describe=describe, )
     suite.case_ids = case_ids
     suite.save()
     return JsonResponse.success_response(data={"suite": model_to_dict(suite,exclude=[Suite.is_deleted])}, msg="创建测试套件成功")
@@ -382,24 +383,28 @@ def delete_suite():
 @auto_pytest.route('/create_case_result', methods=['POST'])
 def create_case_result():
     data = request.get_json()
+    title = data.get("title")
     suite_name = data.get("suite_name")
     status = data.get("status")
     result = data.get("result")
     report_link = data.get("report_link")
     report_download = data.get("report_download")
     last_report_id = data.get("last_report_id")
+    test_type = data.get("test_type")
+    test_env = data.get("test_env")
     if not suite_name:
         return JsonResponse.error_response(data="测试套件名称不能为空")
     # 如果测试套件不存在Suite表,报错
     suite = Suite().get_or_none(suite_name=suite_name)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
-    case = TestResult.create(suite_name=suite_name, status=status, result=result, report_link=report_link, report_download=report_download, last_report_id=last_report_id)
+    case = TestResult.create(title=title,suite_name=suite_name, status=status, result=result, report_link=report_link, report_download=report_download, last_report_id=last_report_id, test_type=test_type, test_env=test_env)
     # 返回创建的id
-    id = case.id
-    return JsonResponse.success_response(data={"id": id}, msg="创建测试成功")
+    id_ = case.id
+    g.id =id_
+    return JsonResponse.success_response(data={"id": id_}, msg="创建测试成功")
 
-# 根据id,suite_name,status,result,获取测试
+# 根据id,suite_name,status,result,test_type,test_env获取测试
 @auto_pytest.route('/get_case_result', methods=['GET'])
 def get_case_result():
     cases = TestResult.select()
@@ -407,6 +412,8 @@ def get_case_result():
     status = request.args.get("status")
     result = request.args.get("result")
     id = request.args.get("id")
+    test_type = request.args.get("test_type")
+    test_env = request.args.get("test_env")
     if suite_name:
         cases = cases.where(TestResult.suite_name == suite_name)
     if status:
@@ -415,6 +422,10 @@ def get_case_result():
         cases = cases.where(TestResult.result == result)
     if id:
         cases = cases.where(TestResult.id == id)
+    if test_type:
+        cases = cases.where(TestResult.test_type == test_type)
+    if test_env:
+        cases = cases.where(TestResult.test_env == test_env)
     case_list = []
     # 分页 limit offset
     start = 0
@@ -442,6 +453,8 @@ def update_case_result():
     report_link = data.get("report_link")
     report_download = data.get("report_download")
     last_report_id = data.get("last_report_id")
+    test_type = data.get("test_type")
+    test_env = data.get("test_env")
     if not id_:
         return JsonResponse.error_response(data="测试id不能为空")
     case = TestResult.get_or_none(id=id_)
@@ -459,6 +472,10 @@ def update_case_result():
         case.report_download = report_download
     if last_report_id:
         case.last_report_id = last_report_id
+    if test_type:
+        case.test_type = test_type
+    if test_env:
+        case.test_env = test_env
     case.save()
     return JsonResponse.success_response(msg="更新测试成功")
 # 根据id删除测试
@@ -473,5 +490,183 @@ def delete_case_result():
         return JsonResponse.error_response(data="测试不存在")
     case.delete_instance()
     return JsonResponse.success_response(msg="删除测试成功")
+
+# 执行自动化测试
+@auto_pytest.route('/run_case_result', methods=['POST'])
+def run_case_result():
+    create_case_result()
+    # logger.info(resp.response)
+    result = TestResult.get(id=g.id)
+    suite_name = result.suite_name.suite_name
+    project_name = result.suite_name.project_name.project_name
+    test_type = result.suite_name.test_type
+    test_env = result.suite_name.test_env
+    satrt_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    logger.info(model_to_dict(result))
+    task_id = run_openapi_test.delay(cases=1,project_name=project_name,suite_name=suite_name,test_type=test_type,test_env=test_env,start_time=satrt_time)
+    logger.info(task_id)
+    return JsonResponse.success_response(msg="执行自动化测试成功",data={"task_id":task_id.id})
+
+# 根据设置的时间运行测试,不管是webhook还是手动调用还是指定时间调用,都可以通过该接口来进行
+# 不同点在于,接口传参时test_type,test_env的不同
+@auto_pytest.route('/run_case_result_by_time', methods=['POST'])
+def run_case_result_by_time():
+
+    data = request.get_json()
+    run_time = data.get("run_time")
+    if not run_time:
+        run_time = datetime.now()
+    # 对时间进行转化
+    else:
+        run_time = datetime.strptime(run_time, '%Y-%m-%d_%H-%M-%S')
+    start_time = run_time.strftime('%Y-%m-%d_%H-%M-%S')
+    logger.info(f"run_time:{run_time},start_time:{start_time}")
+    create_case_result() # 先创建好一个测试任务,等待执行
+    result = TestResult.get(id=g.id)
+    suite_name = result.suite_name.suite_name
+    project_name = result.suite_name.project_name.project_name
+    test_type = result.suite_name.test_type
+    test_env = result.suite_name.test_env
+    logger.info(model_to_dict(result))
+    task_id = run_openapi_test.apply_async(eta=datetime.utcfromtimestamp(run_time.timestamp()),kwargs={"cases":1,"project_name":project_name,"suite_name":suite_name,"test_type":test_type,"test_env":test_env,"start_time":start_time})
+    logger.info(task_id)
+    return JsonResponse.success_response(msg="执行自动化测试成功",data={"task_id":task_id.id})
+
+# 创建测试计划
+@auto_pytest.route('/create_case_plant', methods=['POST'])
+def create_case_plant():
+    data = request.get_json()
+    plan_name = data.get("plan_name")
+    suite_name = data.get("suite_name")
+    cron = data.get("cron")
+    test_env = data.get("test_env")
+    if not plan_name:
+        return JsonResponse.error_response(data="测试计划名称不能为空")
+    if not suite_name:
+        return JsonResponse.error_response(data="测试套件名称不能为空")
+    if not cron:
+        return JsonResponse.error_response(data="定时任务不能为空")
+    if not test_env:
+        return JsonResponse.error_response(data="测试环境不能为空")
+    plan_name = TestPlan.get_or_none(plan_name=plan_name)
+    if plan_name:
+        return JsonResponse.error_response(data="测试计划名称已存在")
+    suite = Suite.get_or_none(suite_name=suite_name)
+    if not suite:
+        return JsonResponse.error_response(data="测试套件不存在")
+    if test_env not in ["dev","test","prod"]:
+        return JsonResponse.error_response(data="测试环境不正确")
+    case_plant = TestPlan(suite_name=suite,test_env=test_env,cron=cron,plan_name=plan_name)
+    case_plant.save()
+    return JsonResponse.success_response(msg="创建测试计划成功")
+# 删除测试计划
+@auto_pytest.route('/del_case_plant', methods=['POST'])
+def del_case_plant():
+    data = request.get_json()
+    plan_name = data.get("plan_name")
+    if not plan_name:
+        return JsonResponse.error_response(data="测试计划名称不能为空")
+    plan_name = TestPlan.get_or_none(plan_name=plan_name)
+    if not plan_name:
+        return JsonResponse.error_response(data="测试计划不存在")
+    plan_name.delete_instance(permanently=True)
+    return JsonResponse.success_response(msg="删除测试计划成功")
+# 修改测试计划
+@auto_pytest.route('/update_case_plant', methods=['POST'])
+def update_case_plant():
+    data = request.get_json()
+    plan_name = data.get("plan_name")
+    suite_name = data.get("suite_name")
+    cron = data.get("cron")
+    test_env = data.get("test_env")
+    if not plan_name:
+        return JsonResponse.error_response(data="测试计划名称不能为空")
+    plan = TestPlan.get_or_none(plan_name=plan_name)
+    if not plan:
+        return JsonResponse.error_response(data="测试计划不存在")
+    plan = TestPlan.get(plan_name=plan_name)
+    if suite_name:
+        suite = Suite.get_or_none(suite_name=suite_name)
+        if not suite:
+            return JsonResponse.error_response(data="测试套件不存在")
+        plan.suite_name = suite_name
+        plan.save()
+    if test_env:
+        if test_env not in ["dev","test","prod"]:
+            return JsonResponse.error_response(data="测试环境不正确")
+        plan.test_env = test_env
+        plan.save()
+    if cron:
+        plan.cron = cron
+        plan.save()
+    return JsonResponse.success_response(msg="修改测试计划成功")
+
+# 根据条件查询测试计划列表
+@auto_pytest.route('/list_case_plant', methods=['GET'])
+def list_case_plant():
+    plans = TestPlan.select()
+    if request.args.get("plan_name"):
+        plans = plans.where(TestPlan.plan_name == request.args.get("plan_name"))
+    if request.args.get("suite_name"):
+        plans = plans.where(TestPlan.suite_name == request.args.get("suite_name"))
+    if request.args.get("test_env"):
+        plans = plans.where(TestPlan.test_env == request.args.get("test_env"))
+    # 分页 limit offset
+    start = 0
+    per_page_nums = 10
+    plan_list = []
+    if request.args.get("pageSize"):
+        per_page_nums = int(request.args.get("pageSize"))
+    if request.args.get("current"):
+        start = per_page_nums * (int(request.args.get("current")) - 1)
+    total = plans.count()
+    goods = plans.limit(per_page_nums).offset(start)
+    logger.info(goods.count())
+    for plan in plan_list:
+        plan_list.append(model_to_dict(plan,exclude=[TestPlan.is_deleted]))
+    return JsonResponse.list_response(
+        list_data=plan_list,
+        total=total,
+        current_page=start + 1,
+        page_size=per_page_nums
+    )
+
+# 动态设置定时任务,开启还是关闭
+@auto_pytest.route('/set_case_result', methods=['POST'])
+def set_case_result():
+    from plant_srv.utils.celery_util.make_celery import celery_app
+    data = request.get_json()
+    plan_name = data.get("plan_name")
+    on_off = data.get("on_off")
+    if not plan_name:
+        return JsonResponse.error_response(data="测试计划名称不能为空")
+    plan = TestPlan.get_or_none(plan_name=plan_name)
+    if not plan:
+        return JsonResponse.error_response(data="测试计划不存在")
+    if not on_off:
+        return JsonResponse.error_response(data="开启或关闭不能为空")
+    if on_off not in ["on","off"]:
+        return JsonResponse.error_response(data="开启或关闭参数不正确")
+    plan = TestPlan.get(plan_name=plan_name)
+    if plan.on_off == on_off:
+        return JsonResponse.error_response(data="当前状态和设置状态一致")
+    if on_off == "on":
+        # 开启定时任务配置
+        plan.on_off = on_off
+        plan.save()
+        # 开启定时任务
+        # celery_app.send_task("plant_srv.tasks.auto_pytest_task", args=[plan_name])
+    else:
+        # 关闭定时任务配置
+        plan.on_off = on_off
+        plan.save()
+        # 关闭定时任务
+        # celery_app.control.revoke(plan_name, terminate=True)
+    # 读取celery中定时任务配置
+    logger.info(celery_app.conf.beat_schedule)
+
+    return JsonResponse.success_response(data="设置成功")
+
+
 
 
