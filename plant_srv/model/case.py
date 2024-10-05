@@ -68,7 +68,10 @@ class TestPlan(BaseModel):
   # 测试环境 线上线下
   test_env = CharField(max_length=100, null=False, verbose_name="测试环境")
   # 是否开启,默认为关闭
-  is_open = BooleanField(null=False, default=False, verbose_name="是否开启")
+  # is_open = BooleanField(null=False, default=False, verbose_name="是否开启")
+  is_open = CharField(null=False, default="off", verbose_name="是否开启")
+  # 测试计划的任务id,用于取消任务
+  plan_id = CharField(max_length=100, null=True, verbose_name="任务id")
 
 
 
@@ -80,7 +83,7 @@ class TestResult(BaseModel):
   title = CharField(max_length=100, null=True, verbose_name="测试报告标题")
   # 外键 suite_name
   suite_name = ForeignKeyField(Suite, verbose_name="suite_name")
-  # 运行的状态
+  # 运行的状态 0 代表运行中 1 代表流程结束
   status = IntegerField(null=True, default=0,verbose_name="运行状态")
   # 测试结果 成功,失败,部分失败
   result = CharField(max_length=100, null=True, verbose_name="测试结果")
@@ -92,9 +95,9 @@ class TestResult(BaseModel):
   last_report_id = IntegerField(null=True, verbose_name="上一次测试报告的id")
   # result_desc = TextField(max_length=1000, null=True, verbose_name="测试结果描述")
   # 测试类型 定时 webhook 手动
-  test_type = CharField(max_length=100, null=False, verbose_name="测试类型")
+  test_type = CharField(max_length=100, null=True, verbose_name="测试类型")
   # 测试环境 线上线下
-  test_env = CharField(max_length=100, null=False, verbose_name="测试环境")
+  test_env = CharField(max_length=100, null=True, verbose_name="测试环境")
 
 
 class CaseTag(BaseModel):
@@ -107,10 +110,14 @@ if __name__ == '__main__':
     # # database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestResult, CaseTag])
     # # 删除表
     TestResult.drop_table()
-    Suite.drop_table()
+    TestResult.create_table()
+    # Suite.drop_table()
+    TestPlan.drop_table()
+    TestPlan.create_table()
+
     # Project.drop_table()
     # 创建表
-    database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestPlan,TestResult, CaseTag])
+    # database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestPlan,TestResult, CaseTag])
 
 
     pass

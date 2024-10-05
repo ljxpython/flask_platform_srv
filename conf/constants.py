@@ -67,6 +67,9 @@ class Config:
     UPLOAD_FOLDER = "./logs"
     ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg", "gif"}
     MAX_CONTENT_PATH = 16 * 1024 * 1024  # 限制上传文件大小为16M
+    # APSchedule配置
+    SCHEDULER_TIMEZONE = 'Asia/Shanghai'  # 配置时区
+    SCHEDULER_API_ENABLED = True  # 添加API
     # celery 相关的配置存放到utils/celery文件内
     # CELERY = dict(
     #     broker_url=f"redis://:{settings.redis.password}@{settings.redis.host}:{settings.redis.port}",
@@ -96,6 +99,8 @@ class ProductionConfig(Config):
         db=settings.redis.db,
     )  # 操作的redis配置
     PERMANENT_SESSION_LIFETIME = timedelta(days=1)  # 配置7天有效
+    DEBUG = False
+    TESTING = False
 
 
 config_map = {"develop": DevelopmentConfig, "product": ProductionConfig}

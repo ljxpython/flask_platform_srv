@@ -3,6 +3,9 @@ from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_session import Session
+from flask_apscheduler import APScheduler
+import os
+import logging
 
 from conf.config import settings
 from conf.constants import config_map
@@ -12,9 +15,20 @@ from plant_srv.utils.error_handle import init_error_exception
 from plant_srv.utils.log_moudle import logger
 from plant_srv.utils.middlewares import register_middlewares
 from plant_srv.utils.celery_util.create_celery_app import celery_init_app
-
+from plant_srv.utils.apscheduler_util.extensions import scheduler
 
 def create_app():
+    def is_debug_mode():
+        """Get app debug status."""
+        debug = os.environ.get("FLASK_DEBUG")
+        if not debug:
+            return os.environ.get("FLASK_ENV") == "development"
+        return debug.lower() not in ("0", "false", "no")
+
+    def is_werkzeug_reloader_process():
+        """Get werkzeug status."""
+        return os.environ.get("WERKZEUG_RUN_MAIN") == "true"
+
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_map[settings.node])  # 从类中读取需要的信息
     # app.config.from_prefixed_env()
@@ -28,6 +42,9 @@ def create_app():
         init_error_exception(app)
     register_middlewares(app)
     celery_init_app(app)
+
+    scheduler.init_app(app)
+    logging.getLogger("apscheduler").setLevel(logging.INFO)
     # Set the custom Encoder (Inherit it if you need to customize)
     # app.json_encoder = LazyJSONEncoder
     # template = dict(
@@ -44,5 +61,21 @@ def create_app():
     # Swagger(app, template=template)
     # 注册蓝图
     # app.register_blueprint(admin, url_prefix="/")
-    app.register_blueprint(creat_blueprint(), url_prefix="/api")
-    return app
+    # app.register_blueprint(creat_blueprint(), url_prefix="/api")
+    # pylint: disable=C0415, W0611
+    with app.app_context():
+        # pylint: disable=W0611
+        if is_debug_mode() and not is_werkzeug_reloader_process():
+            pass
+        else:
+            from plant_srv.utils.apscheduler_util import tasks
+
+            scheduler.start()
+
+        from plant_srv.utils.apscheduler_util import events
+
+        app.register_blueprint(creat_blueprint(), url_prefix="/api")
+
+        return app
+
+    # return app

@@ -7,8 +7,13 @@ from flask_jwt_extended import (
     jwt_required,
 )
 import os
-from datetime import datetime
+from datetime import datetime,timedelta
+from celery.schedules import crontab
+from apscheduler.triggers.cron import CronTrigger
+from subprocess import Popen, PIPE
 
+
+import uuid
 from playhouse.shortcuts import model_to_dict
 from conf.constants import Config, template_dir,reports_dir
 from plant_srv.model.async_task import AsyncTask
@@ -18,11 +23,14 @@ from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
 from plant_srv.utils.anlaysis import get_classes_methods_and_module_doc
 from plant_srv.utils.celery_util.task.openapi_task import run_openapi_test
+from plant_srv.utils.celery_util.task.task_demo import add_together
 from plant_srv.utils.celery_util.check_task import task_result
 from plant_srv.utils.file_operation import file_opreator
 from conf.config import settings
 from plant_srv.model.modelsbase import database
 from pathlib import Path
+from plant_srv.utils.apscheduler_util.extensions import scheduler
+from plant_srv.utils.apscheduler_util.tasks import task2,run_openapi_test_by_apschedule
 
 auto_pytest = Blueprint('auto_pytest', __name__, url_prefix='/auto_pytest',template_folder=reports_dir)
 
@@ -146,17 +154,18 @@ def sync_test_case():
     return JsonResponse.success_response(data={"moudle_list": moudle_list}, msg="同步测试模块成功,所有模块列表如上")
 
 # 根据条件查找测试case
-@auto_pytest.route('/get_case', methods=['GET'])
+@auto_pytest.route('/get_case', methods=['POST'])
 def get_case():
     cases = CaseFunc.select()
-    if request.args.get("moudle"):
-        cases = cases.where(CaseFunc.moudle == request.args.get("moudle"))
-    if request.args.get("case_func"):
-        cases = cases.where(CaseFunc.case_func == request.args.get("case_func"))
-    if request.args.get("case_sence"):
-        cases = cases.where(CaseFunc.case_sence == request.args.get("case_sence"))
-    if request.args.get("tags"):
-        cases = cases.where(CaseFunc.tags == request.args.get("tags"))
+    data = request.get_json()
+    if data.get("moudle"):
+        cases = cases.where(CaseFunc.moudle.in_(data.get("moudle")))
+    if data.get("case_func"):
+        cases = cases.where(CaseFunc.case_func == data.get("case_func"))
+    if data.get("case_sence"):
+        cases = cases.where(CaseFunc.case_sence.in_( data.get("case_sence")))
+    if data.get("tags"):
+        cases = cases.where(CaseFunc.tags.in_(data.get("tags")))
     # 分页 limit offset
     start = 0
     per_page_nums = 10
@@ -299,6 +308,42 @@ def create_suite():
     suite.case_ids = case_ids
     suite.save()
     return JsonResponse.success_response(data={"suite": model_to_dict(suite,exclude=[Suite.is_deleted])}, msg="创建测试套件成功")
+
+# 根据case_sence同步测试套件中的case_ids
+@auto_pytest.route('/sync_suite_by_case_ids', methods=['POST'])
+def sync_suite_by_case_ids():
+    data = request.get_json()
+    suite_name = data.get("suite_name")
+    case_sences = data.get("case_sences")
+    if not suite_name:
+        return JsonResponse.error_response(data="测试套件名称不能为空")
+    if not case_sences:
+        return JsonResponse.error_response(data="测试场景不能为空")
+    # 根据case_sences查找case集合
+    cases = CaseFunc.select().where(CaseFunc.case_sence.in_(case_sences))
+    # 如果为空,则抛出异常
+    count = cases.count()
+    case_ids = []
+    if count == 0:
+        return JsonResponse.error_response(data="测试场景不存在")
+    for case in cases:
+        logger.info(case.case_path)
+        case_ids.append(case.case_path)
+    # 对case_ids进行去重
+    # logger.info(case_ids)
+    case_ids = list(set(case_ids))
+    # logger.info(case_ids)
+    # 根据suite_name查找测试套件
+    suite = Suite().get_or_none(suite_name=suite_name)
+    if not suite:
+        return JsonResponse.error_response(data="测试套件不存在")
+    suite = Suite.get(Suite.suite_name == suite_name)
+    suite.case_ids = ' '.join(case_ids)
+    logger.info(suite.case_ids)
+    suite.save()
+    return JsonResponse.success_response(data={"suite": model_to_dict(suite,exclude=[Suite.is_deleted])}, msg="同步测试套件成功")
+
+
 
 # 根据指定条件查找测试套件,条件有:project_name, suite_name, test_type, test_env
 @auto_pytest.route('/get_suite_list', methods=['GET'])
@@ -514,6 +559,8 @@ def run_case_result_by_time():
 
     data = request.get_json()
     run_time = data.get("run_time")
+    test_type = data.get("test_type")
+    test_env = data.get("test_env")
     if not run_time:
         run_time = datetime.now()
     # 对时间进行转化
@@ -525,8 +572,8 @@ def run_case_result_by_time():
     result = TestResult.get(id=g.id)
     suite_name = result.suite_name.suite_name
     project_name = result.suite_name.project_name.project_name
-    test_type = result.suite_name.test_type
-    test_env = result.suite_name.test_env
+    # test_type = result.suite_name.test_type
+    # test_env = result.suite_name.test_env
     logger.info(model_to_dict(result))
     task_id = run_openapi_test.apply_async(eta=datetime.utcfromtimestamp(run_time.timestamp()),kwargs={"cases":1,"project_name":project_name,"suite_name":suite_name,"test_type":test_type,"test_env":test_env,"start_time":start_time})
     logger.info(task_id)
@@ -540,6 +587,8 @@ def create_case_plant():
     suite_name = data.get("suite_name")
     cron = data.get("cron")
     test_env = data.get("test_env")
+    is_open = data.get("is_open","off")
+    logger.info(f"plan_name:{plan_name},{suite_name},{cron},{test_env},{is_open}")
     if not plan_name:
         return JsonResponse.error_response(data="测试计划名称不能为空")
     if not suite_name:
@@ -548,16 +597,15 @@ def create_case_plant():
         return JsonResponse.error_response(data="定时任务不能为空")
     if not test_env:
         return JsonResponse.error_response(data="测试环境不能为空")
-    plan_name = TestPlan.get_or_none(plan_name=plan_name)
-    if plan_name:
+    plan_ = TestPlan.get_or_none(plan_name=plan_name)
+    if plan_:
         return JsonResponse.error_response(data="测试计划名称已存在")
-    suite = Suite.get_or_none(suite_name=suite_name)
-    if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
-    if test_env not in ["dev","test","prod"]:
-        return JsonResponse.error_response(data="测试环境不正确")
-    case_plant = TestPlan(suite_name=suite,test_env=test_env,cron=cron,plan_name=plan_name)
-    case_plant.save()
+    # suite = Suite.get_or_none(suite_name=suite_name)
+    # if not suite:
+    #     return JsonResponse.error_response(data="测试套件不存在")
+    if test_env not in ["dev","test","prod","online","boe"]:
+        return JsonResponse.error_response(data="测试环境不正确,not in [dev,test,prod,online,boe]")
+    TestPlan.create(plan_name=plan_name,suite_name=suite_name,test_env=test_env,cron=cron,is_open=is_open)
     return JsonResponse.success_response(msg="创建测试计划成功")
 # 删除测试计划
 @auto_pytest.route('/del_case_plant', methods=['POST'])
@@ -592,7 +640,7 @@ def update_case_plant():
         plan.suite_name = suite_name
         plan.save()
     if test_env:
-        if test_env not in ["dev","test","prod"]:
+        if test_env not in ["dev","test","prod","online","boe"]:
             return JsonResponse.error_response(data="测试环境不正确")
         plan.test_env = test_env
         plan.save()
@@ -620,10 +668,12 @@ def list_case_plant():
     if request.args.get("current"):
         start = per_page_nums * (int(request.args.get("current")) - 1)
     total = plans.count()
-    goods = plans.limit(per_page_nums).offset(start)
-    logger.info(goods.count())
-    for plan in plan_list:
+    plans = plans.limit(per_page_nums).offset(start)
+    logger.info(plans.count())
+    for plan in plans:
+        logger.info(plan)
         plan_list.append(model_to_dict(plan,exclude=[TestPlan.is_deleted]))
+    logger.info(plan_list)
     return JsonResponse.list_response(
         list_data=plan_list,
         total=total,
@@ -631,41 +681,190 @@ def list_case_plant():
         page_size=per_page_nums
     )
 
-# 动态设置定时任务,开启还是关闭
-@auto_pytest.route('/set_case_result', methods=['POST'])
-def set_case_result():
+# 动态设置定时任务,开启还是关闭,该方法暂时废弃,实现起来需要自己额外开发很多功能
+@auto_pytest.route('/set_case_result_by_celery', methods=['POST'])
+def set_case_result_by_celery():
     from plant_srv.utils.celery_util.make_celery import celery_app
     data = request.get_json()
     plan_name = data.get("plan_name")
-    on_off = data.get("on_off")
+    is_open = data.get("is_open")
+    cron = data.get("cron")
     if not plan_name:
         return JsonResponse.error_response(data="测试计划名称不能为空")
     plan = TestPlan.get_or_none(plan_name=plan_name)
     if not plan:
         return JsonResponse.error_response(data="测试计划不存在")
-    if not on_off:
+    if not is_open:
         return JsonResponse.error_response(data="开启或关闭不能为空")
-    if on_off not in ["on","off"]:
+    if is_open not in ["on","off"]:
         return JsonResponse.error_response(data="开启或关闭参数不正确")
     plan = TestPlan.get(plan_name=plan_name)
-    if plan.on_off == on_off:
+    if not cron:
+        cron = plan.cron
+    if plan.is_open == is_open:
         return JsonResponse.error_response(data="当前状态和设置状态一致")
-    if on_off == "on":
+    if is_open == "on":
         # 开启定时任务配置
-        plan.on_off = on_off
+        plan.is_open = is_open
         plan.save()
         # 开启定时任务
+        celery_app.conf.beat_schedule['test_case_result'] = {
+            "task": 'plant_srv.utils.celery_util.task.task_demo.add_together', # 任务名称
+            "schedule": timedelta(seconds=30), # 定时任务时间
+            "args": (5, 6), # 传递参数
+        }
+
+        # @celery_app.on_after_configure.connect
+        # def setup_periodic_tasks(sender, **kwargs):
+        #     # Calls test('hello') every 10 seconds.
+        #     sender.add_periodic_task(10.0, test.s('hello'), name='add every 10')
+        celery_app.add_periodic_task(schedule=timedelta(seconds=30),sig=add_together.s(10,11),name='add every 10')
         # celery_app.send_task("plant_srv.tasks.auto_pytest_task", args=[plan_name])
     else:
         # 关闭定时任务配置
-        plan.on_off = on_off
+        plan.is_open = is_open
         plan.save()
         # 关闭定时任务
-        # celery_app.control.revoke(plan_name, terminate=True)
+        del celery_app.conf.beat_schedule["test_case_result"]
     # 读取celery中定时任务配置
     logger.info(celery_app.conf.beat_schedule)
 
+
     return JsonResponse.success_response(data="设置成功")
+
+
+@auto_pytest.route('/job_test', methods=['POST'])
+def job_test():
+    job = scheduler.add_job(
+        func=task2,
+        # trigger="cron",
+        # seconds=30,
+        id="test2",
+        name="test2",
+        replace_existing=True,
+        kwargs={"a": 1, "b": 2},
+        trigger = CronTrigger.from_crontab('30 * * * *')
+    )
+    logger.info(job)
+    return JsonResponse.success_response(data="定时任务开启成功")
+
+# 定时任务开启
+
+# 定时任务关闭
+
+# 定时任务更新
+
+
+# 动态设置定时任务,开启\关闭\更新
+@auto_pytest.route('/set_case_result_by_cron', methods=['POST'])
+def set_case_result_by_cron():
+    '''
+        https://apscheduler.readthedocs.io/en/3.x/py-modindex.html
+        下面是支持cron的实现方式
+    :param request:
+    :return:
+    trigger：指定触发器类型，可以是 interval（间隔触发）或 cron（定时触发）。
+    corn：指定定时任务的 cron 表达式。
+        详细参考:https://en.wikipedia.org/wiki/Cron
+        minute：指定在每小时的哪一分钟触发，范围是 0-59 或 *（每分钟）。
+        hour：指定在每天的哪个小时触发，范围是 0-23 或 *（每小时）。
+        day：指定在每个月的哪一天触发，范围是 1-31 或 *（每天）。
+        month：指定在每年的哪个月份触发，范围是 1-12 或 *（每月）。
+        day_of_week：指定在每周的哪几天触发，可以使用 0-6（0 代表周日），或使用缩写如 mon、tue 等。例如，mon-fri 表示从周一到周五。
+    interval：指定间隔触发的时间间隔，可以是 seconds（秒）、minutes（分钟）、hours（小时）、days（天）、weeks（周）或 months（月）。
+        Parameters:
+        weeks (int) – number of weeks to wait
+        days (int) – number of days to wait
+        hours (int) – number of hours to wait
+        minutes (int) – number of minutes to wait
+        seconds (int) – number of seconds to wait
+        start_date (datetime|str) – starting point for the interval calculation
+        end_date (datetime|str) – latest possible date/time to trigger on
+    date：指定在某个具体的日期和时间触发。
+        run_date：指定在某个具体的日期和时间触发。
+    '''
+    data = request.get_json()
+    plan_name = data.get("plan_name")
+    is_open = data.get("is_open")
+    trigger = data.get("trigger","cron")
+    cron = data.get("cron")
+    minute = data.get("minute","*")
+    hour = data.get("hour","*")
+    day = data.get("day","*")
+    month = data.get("month","*")
+    day_of_week = data.get("day_of_week","0-6")
+    run_once = data.get("run_once",False)
+    if not plan_name:
+        return JsonResponse.error_response(data="测试计划名称不能为空")
+    plan = TestPlan.get_or_none(plan_name=plan_name)
+    if not plan:
+        return JsonResponse.error_response(data="测试计划不存在")
+    if not is_open:
+        return JsonResponse.error_response(data="开启或关闭不能为空")
+    if is_open not in ["on","off"]:
+        return JsonResponse.error_response(data="开启或关闭参数不正确")
+    plan = TestPlan.get(plan_name=plan_name)
+    if not cron:
+        cron = plan.cron
+    if plan.is_open == is_open:
+        return JsonResponse.error_response(data="当前状态和设置状态一致")
+    # 如果不存在taskid,随机生成一个task_id,写入到数据库中
+    if not plan.plan_id:
+        plan_id = str(uuid.uuid4())
+        plan.plan_id = plan_id
+        plan.save()
+    if is_open == "on":
+        # 开启定时任务配置
+        plan.is_open = is_open
+        plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
+        plan.save()
+        if run_once:
+            create_run_case(suite_name=plan.suite_name.suite_name,test_type="cron",test_env=plan.test_env,start_time=datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+            # create_case_result()  # 先创建好一个测试任务,等待执行
+            # result = TestResult.get(id=g.id)
+            # run_openapi_test_by_apschedule(cases=1,project_name=plan.suite_name.project_name.project_name,suite_name=plan.suite_name.suite_name,test_type="cron",test_env=plan.test_env,start_time=datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+        # # 开启定时任务,及是否直接触发一次
+        # task = scheduler.add_job(
+        #     func=run_openapi_test_by_apschedule,
+        #     id=plan.plan_id,
+        #     name=plan_name,
+        #     replace_existing=True,
+        #     trigger=CronTrigger.from_crontab(f"{minute} {hour} {day} {month} {day_of_week}"),
+        #     kwargs={"cases":1,"project_name":plan.suite_name.project_name.project_name,"suite_name":plan.suite_name.suite_name,"test_type":"cron","test_env":plan.test_env,"start_time":datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),
+        # }
+        # )
+        # logger.info(task)
+        return JsonResponse.success_response(data="定时任务开启成功",msg=plan.plan_id)
+    else:
+        # 关闭定时任务配置
+        plan.is_open = is_open
+        plan.save()
+    return JsonResponse.success_response(data="设置成功")
+
+# 需要封装执行自动化测试及把结果写入到case中的一个方法,或者,通过pytest框架的main.py来完成
+def create_run_case(suite_name,test_type,test_env,start_time:str=datetime.now().strftime("%Y-%m-%d_%H:%M:%S")):
+    # 创建一个测试计划等待执行
+    suite = Suite().get_or_none(suite_name=suite_name)
+    if not suite:
+        return JsonResponse.error_response(data="测试套件不存在")
+    suite = Suite.get(suite_name=suite_name)
+    project_name = suite.project_name.project_name
+    title = f"{project_name}-{suite_name}-{test_type}-{test_env}-{start_time}"
+    case = TestResult.create(title=title, suite_name=suite_name, test_type=test_type,
+                             test_env=test_env)
+    # 返回创建的id
+    id_ = case.id
+    g.id = id_
+    case_ids = suite.case_ids
+    logger.info(case_ids)
+    # 需要suite(project_name,suite_name,) test_type test_env start_time
+    comand = f"export ENV_FOR_DYNACONF={test_env} && {settings.test.python_env} main.py --cases '{case_ids}'  --allure_dir {settings.test.report_dir}/{project_name}/{suite_name}/{test_type}/{test_env}/{start_time} --result_id {id_}"
+    logger.info(comand)
+    # time.sleep(10)
+    resp = Popen(comand, shell=True, cwd=settings.test.base_dir)
+    # 在测试中,补全status,result,report_link,report_download
+    return {"id":id_,"title":title,"suite_name":suite_name,"test_type":test_type,"test_env":test_env,"start_time":start_time,"status":"running","result":"running","report_link":"","report_download":""}
+
 
 
 

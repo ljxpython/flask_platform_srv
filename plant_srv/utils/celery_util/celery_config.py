@@ -13,7 +13,9 @@ result_expires： 异步任务结果存活时长
 beat_schedule：设置定时任务
 '''
 
+from datetime import timedelta
 from conf.config import settings
+
 
 # 手动注册celery的异步任务：将所有celery异步任务所在的模块找到，写成字符串
 # 所有任务均放在plant_srv/utils/celery_util/task/下面
@@ -34,6 +36,13 @@ celery_config = {
     "accept_content": ['json'],
     "timezone": 'Asia/Shanghai',
     "enable_utc": False,
-    "beat_schedule":{},
+    "beat_schedule":{
+        # "test":{
+        #
+        #     "task": 'plant_srv.utils.celery_util.task.task_demo.add_together',  # 任务名称
+        #     "schedule": timedelta(seconds=30),  # 定时任务时间
+        #     "args": (5, 6),  # 传递参数
+        # }
+    },
     "broker_connection_retry": True,
 }
