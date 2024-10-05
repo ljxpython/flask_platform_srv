@@ -794,6 +794,7 @@ def set_case_result_by_cron():
     month = data.get("month","*")
     day_of_week = data.get("day_of_week","0-6")
     run_once = data.get("run_once",False)
+    update_corn = data.get("update_corn",False)
     if not plan_name:
         return JsonResponse.error_response(data="测试计划名称不能为空")
     plan = TestPlan.get_or_none(plan_name=plan_name)
@@ -818,28 +819,54 @@ def set_case_result_by_cron():
         plan.is_open = is_open
         plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
         plan.save()
-        if run_once:
-            create_run_case(suite_name=plan.suite_name.suite_name,test_type="cron",test_env=plan.test_env,start_time=datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-            # create_case_result()  # 先创建好一个测试任务,等待执行
-            # result = TestResult.get(id=g.id)
-            # run_openapi_test_by_apschedule(cases=1,project_name=plan.suite_name.project_name.project_name,suite_name=plan.suite_name.suite_name,test_type="cron",test_env=plan.test_env,start_time=datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
         # # 开启定时任务,及是否直接触发一次
-        # task = scheduler.add_job(
-        #     func=run_openapi_test_by_apschedule,
-        #     id=plan.plan_id,
-        #     name=plan_name,
-        #     replace_existing=True,
-        #     trigger=CronTrigger.from_crontab(f"{minute} {hour} {day} {month} {day_of_week}"),
-        #     kwargs={"cases":1,"project_name":plan.suite_name.project_name.project_name,"suite_name":plan.suite_name.suite_name,"test_type":"cron","test_env":plan.test_env,"start_time":datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),
-        # }
-        # )
-        # logger.info(task)
+        task = scheduler.add_job(
+            func=create_run_case,
+            id=plan.plan_id,
+            name=plan_name,
+            replace_existing=True,
+            trigger=CronTrigger.from_crontab(f"{minute} {hour} {day} {month} {day_of_week}"),
+            kwargs={'suite_name': plan.suite_name.suite_name, 'test_type': "cron", 'test_env': plan.test_env},
+        )
+        if run_once:
+            scheduler.run_job(id=plan.plan_id)
+        logger.info(task)
         return JsonResponse.success_response(data="定时任务开启成功",msg=plan.plan_id)
+    elif update_corn:
+        # 更新定时任务配置
+        plan.is_open = is_open
+        plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
+        plan.save()
+        # 更新定时任务
+        scheduler.reschedule_job(id=plan.plan_id,trigger=CronTrigger.from_crontab(f"{minute} {hour} {day} {month} {day_of_week}"))
     else:
         # 关闭定时任务配置
         plan.is_open = is_open
         plan.save()
+        # 关闭定时任务
+        scheduler.remove_job(id=plan.plan_id)
     return JsonResponse.success_response(data="设置成功")
+
+# webhook触发执行测试
+@auto_pytest.route("/webhook",methods=["POST","GET"])
+def webhook():
+    # 获取请求中的数据
+    key = request.args.get("key")
+    data = request.get_json()
+    logger.info(data)
+    plan = TestPlan.get(plan_name=settings.test.webhook_plan)
+    if key != settings.test.webhook_key:
+        return JsonResponse.response(data={'msg':"key不正确"},code=401)
+    else:
+        task = scheduler.add_job(
+            func=create_run_case,
+            kwargs={'suite_name':plan.suite_name.suite_name,'test_type':"cron",'test_env':plan.test_env},
+            id=str(uuid.uuid4()),
+            replace_existing=True)
+        return JsonResponse.response(data={'msg':"webhook任务开启成功"},code=200)
+
+
+
 
 # 需要封装执行自动化测试及把结果写入到case中的一个方法,或者,通过pytest框架的main.py来完成
 def create_run_case(suite_name,test_type,test_env,start_time:str=datetime.now().strftime("%Y-%m-%d_%H:%M:%S")):
@@ -854,7 +881,8 @@ def create_run_case(suite_name,test_type,test_env,start_time:str=datetime.now().
                              test_env=test_env)
     # 返回创建的id
     id_ = case.id
-    g.id = id_
+    # g.id = id_
+    # with auto_pytest.app.app_context():
     case_ids = suite.case_ids
     logger.info(case_ids)
     # 需要suite(project_name,suite_name,) test_type test_env start_time

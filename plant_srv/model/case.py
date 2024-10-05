@@ -88,9 +88,9 @@ class TestResult(BaseModel):
   # 测试结果 成功,失败,部分失败
   result = CharField(max_length=100, null=True, verbose_name="测试结果")
   # 测试报告链接
-  report_link = CharField(max_length=100, null=True, verbose_name="测试报告链接")
+  report_link = CharField(max_length=1000, null=True, verbose_name="测试报告链接")
   # 测试报告下载地址
-  report_download = CharField(max_length=100, null=True, verbose_name="测试报告下载地址")
+  report_download = CharField(max_length=1000, null=True, verbose_name="测试报告下载地址")
   # 上一次测试报告的id
   last_report_id = IntegerField(null=True, verbose_name="上一次测试报告的id")
   # result_desc = TextField(max_length=1000, null=True, verbose_name="测试结果描述")
@@ -112,8 +112,8 @@ if __name__ == '__main__':
     TestResult.drop_table()
     TestResult.create_table()
     # Suite.drop_table()
-    TestPlan.drop_table()
-    TestPlan.create_table()
+    # TestPlan.drop_table()
+    # TestPlan.create_table()
 
     # Project.drop_table()
     # 创建表
