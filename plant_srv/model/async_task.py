@@ -13,5 +13,5 @@ class AsyncTask(BaseModel):
     task_error = TextField(null=True, verbose_name="任务错误")
 
 if __name__ == '__main__':
-    # AsyncTask.create_table()
+    AsyncTask.create_table()
     pass

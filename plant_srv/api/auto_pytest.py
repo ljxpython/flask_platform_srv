@@ -219,7 +219,8 @@ def update_project():
     project_owners = data.get("project_owners")
     project = Project().get_or_none(project_name=project_name)
     if not project:
-        return JsonResponse.error_response(msg="项目不存在")
+        return JsonResponse.error_response(data="项目不存在")
+    project = Project().get(project_name=project_name)
     if project_desc:
         project.project_desc = project_desc
     if project_owners:
@@ -235,6 +236,7 @@ def delete_project():
     project = Project().get_or_none(project_name=project_name)
     if not project:
         return JsonResponse.error_response(msg="项目不存在")
+    project = Project().get(project_name=project_name)
     project.delete_instance()
     return JsonResponse.success_response(msg="删除项目成功")
 
