@@ -41,7 +41,6 @@ class Project(BaseModel):
   project_desc = TextField( null=True, verbose_name="项目描述")
   project_owners = CharField(verbose_name="可执行测试的人员")
 
-
 class Suite(BaseModel):
   suite_name = CharField(max_length=100, verbose_name="套件名称", primary_key=True)
   # project_id 作为外键
@@ -73,10 +72,6 @@ class TestPlan(BaseModel):
   # 测试计划的任务id,用于取消任务
   plan_id = CharField(max_length=100, null=True, verbose_name="任务id")
 
-
-
-
-
 class TestResult(BaseModel):
   # id = AutoField(primary_key=True)
   # 标题
@@ -99,7 +94,6 @@ class TestResult(BaseModel):
   # 测试环境 线上线下
   test_env = CharField(max_length=100, null=True, verbose_name="测试环境")
 
-
 class CaseTag(BaseModel):
   # id = AutoField()
   tag = CharField(max_length=100, null=False, verbose_name="标签",unique=True)
@@ -109,15 +103,15 @@ if __name__ == '__main__':
     # 创建表
     # # database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestResult, CaseTag])
     # # 删除表
-    TestResult.drop_table()
-    TestResult.create_table()
+    # TestResult.drop_table()
+    # TestResult.create_table()
     # Suite.drop_table()
     # TestPlan.drop_table()
     # TestPlan.create_table()
 
     # Project.drop_table()
     # 创建表
-    # database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestPlan,TestResult, CaseTag])
+    database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestPlan,TestResult, CaseTag])
 
 
     pass

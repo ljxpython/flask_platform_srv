@@ -77,7 +77,7 @@ database = ReconnectMySQLDatabase(
 
 if __name__ == "__main__":
     # 创建表
-    # p_info = Person.create_table()
+    p_info = Person.create_table()
     # logger.info(p_info)
     # 创建表也可以这样, 可以创建多个
     # database.create_tables([Person])
@@ -87,12 +87,12 @@ if __name__ == "__main__":
     # p.save()
     # 查询
 
-    logger.info(Person.get(Person.name == "lasd").birthday)
-    res = Person.select().where(Person.name == "lasd").dicts()
-
-    logger.info(res)
-    logger.info(Person.select().where(Person.name == "lasd"))
-    logger.info(list(res))
+    # logger.info(Person.get(Person.name == "lasd").birthday)
+    # res = Person.select().where(Person.name == "lasd").dicts()
+    #
+    # logger.info(res)
+    # logger.info(Person.select().where(Person.name == "lasd"))
+    # logger.info(list(res))
     # for p in res:
     #     logger.info(p)
 

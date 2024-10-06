@@ -826,7 +826,7 @@ def set_case_result_by_cron():
             name=plan_name,
             replace_existing=True,
             trigger=CronTrigger.from_crontab(f"{minute} {hour} {day} {month} {day_of_week}"),
-            kwargs={'suite_name': plan.suite_name.suite_name, 'test_type': "cron", 'test_env': plan.test_env},
+            kwargs={'suite_name': plan.suite_name.suite_name, 'test_type': "cron", 'test_env': plan.test_env,'start_time':datetime.now().strftime("%Y-%m-%d_%H:%M:%S")},
         )
         if run_once:
             scheduler.run_job(id=plan.plan_id)
@@ -860,7 +860,7 @@ def webhook():
     else:
         task = scheduler.add_job(
             func=create_run_case,
-            kwargs={'suite_name':plan.suite_name.suite_name,'test_type':"cron",'test_env':plan.test_env},
+            kwargs={'suite_name':plan.suite_name.suite_name,'test_type':"webhook",'test_env':plan.test_env,'start_time':datetime.now().strftime("%Y-%m-%d_%H:%M:%S")},
             id=str(uuid.uuid4()),
             replace_existing=True)
         return JsonResponse.response(data={'msg':"webhook任务开启成功"},code=200)
@@ -869,7 +869,7 @@ def webhook():
 
 
 # 需要封装执行自动化测试及把结果写入到case中的一个方法,或者,通过pytest框架的main.py来完成
-def create_run_case(suite_name,test_type,test_env,start_time:str=datetime.now().strftime("%Y-%m-%d_%H:%M:%S")):
+def create_run_case(suite_name,test_type,test_env,start_time):
     # 创建一个测试计划等待执行
     suite = Suite().get_or_none(suite_name=suite_name)
     if not suite:
@@ -886,9 +886,8 @@ def create_run_case(suite_name,test_type,test_env,start_time:str=datetime.now().
     case_ids = suite.case_ids
     logger.info(case_ids)
     # 需要suite(project_name,suite_name,) test_type test_env start_time
-    comand = f"export ENV_FOR_DYNACONF={test_env} && {settings.test.python_env} main.py --cases '{case_ids}'  --allure_dir {settings.test.report_dir}/{project_name}/{suite_name}/{test_type}/{test_env}/{start_time} --result_id {id_}"
+    comand = f"export ENV_FOR_DYNACONF={test_env} && {settings.test.python_env} main.py --cases '{case_ids}'  --allure_dir {settings.test.report_dir}/{project_name}/{suite_name}-{test_type}-{test_env}-{start_time} --result_id {id_}"
     logger.info(comand)
-    # time.sleep(10)
     resp = Popen(comand, shell=True, cwd=settings.test.base_dir)
     # 在测试中,补全status,result,report_link,report_download
     return {"id":id_,"title":title,"suite_name":suite_name,"test_type":test_type,"test_env":test_env,"start_time":start_time,"status":"running","result":"running","report_link":"","report_download":""}
