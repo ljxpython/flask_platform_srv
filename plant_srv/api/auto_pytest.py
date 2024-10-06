@@ -239,13 +239,32 @@ def delete_project():
     return JsonResponse.success_response(msg="删除项目成功")
 
 # 获取测试项目列表
-@auto_pytest.route('/get_project_list', methods=['GET'])
+@auto_pytest.route('/get_project_list', methods=['GET', 'POST'])
 def get_project_list():
     projects = Project.select()
+    data = request.get_json()
+    project_name = data.get("project_name")
+    project_desc = data.get("project_desc")
+    project_owners = data.get("project_owners")
+    if project_name:
+        projects = projects.where(Project.project_name == project_name)
+    if project_desc:
+        projects = projects.where(Project.project_desc == project_desc)
+    if project_owners:
+        projects = projects.where(Project.project_owners == project_owners)
+    # 分页 limit offset
+    start = 0
+    per_page_nums = 10
+    if request.args.get("pageSize"):
+        per_page_nums = int(request.args.get("pageSize"))
+    if request.args.get("current"):
+        start = per_page_nums * (int(request.args.get("current")) - 1)
+    total = projects.count()
+    projects = projects.limit(per_page_nums).offset(start)
     project_list = []
     for project in projects:
         project_list.append(model_to_dict(project,exclude=[Project.is_deleted]))
-    return JsonResponse.success_response(data={"project_list": project_list}, msg="获取项目列表成功")
+    return JsonResponse.list_response(list_data=project_list, total=total, page_size=per_page_nums, current_page=start + 1)
 
 # 创建测试标签
 @auto_pytest.route('/create_tag', methods=['POST'])
