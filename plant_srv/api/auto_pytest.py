@@ -200,13 +200,13 @@ def create_project():
     project_owners = data.get("project_owners")
 
     if not project_name:
-        return JsonResponse.error_response(msg="项目名称不能为空")
+        return JsonResponse.error_response(data="项目名称不能为空")
     if Project().get_or_none(project_name=project_name):
-        return JsonResponse.error_response(msg="项目名称已经存在")
+        return JsonResponse.error_response(data="项目名称已经存在")
     if not project_desc:
-        return JsonResponse.error_response(msg="项目描述不能为空")
+        return JsonResponse.error_response(data="项目描述不能为空")
     if not project_owners:
-        return JsonResponse.error_response(msg="项目负责人不能为空")
+        return JsonResponse.error_response(data="项目负责人不能为空")
     project = Project.create(project_name=project_name, project_desc=project_desc, project_owners=project_owners)
     return JsonResponse.success_response(data={"project": model_to_dict(project,exclude=[Project.is_deleted])}, msg="创建项目成功")
 
@@ -263,6 +263,7 @@ def get_project_list():
     projects = projects.limit(per_page_nums).offset(start)
     project_list = []
     for project in projects:
+        logger.info(model_to_dict(project, exclude=[Project.is_deleted]))
         project_list.append(model_to_dict(project,exclude=[Project.is_deleted]))
     return JsonResponse.list_response(list_data=project_list, total=total, page_size=per_page_nums, current_page=start + 1)
 

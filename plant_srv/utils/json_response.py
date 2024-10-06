@@ -140,21 +140,21 @@ class JsonResponse:
 
     # 添加一个常用的成功返回
     @classmethod
-    def success_response(cls, headers: dict = None, data: dict | list | str = None, **kwargs):
+    def success_response(cls, headers: dict = None, data: dict | list | str = None,code: int = None, **kwargs):
         # data及**kwargs中的数据存到到一个字典中
         respose_dict = {"data": data}
         respose_dict.update(**kwargs)
         respose_dict.update({"success": True})
-        return cls.response(data=respose_dict, headers=headers, **kwargs)
+        return cls.response(data=respose_dict, headers=headers, code=code,**kwargs)
 
     # 一个常用的失败的返回
     @classmethod
-    def error_response(cls, headers: dict | list = None, data: dict|list|str = None, **kwargs):
+    def error_response(cls, headers: dict | list = None, data: dict|list|str = None,code: int = None, **kwargs):
         data = {
             "data": data,
             "success": False,
         }
-        return cls.response(data=data, headers=headers, **kwargs)
+        return cls.response(data=data, headers=headers, code=code,**kwargs)
 
     # 查询分页类接口
     @classmethod
@@ -165,6 +165,7 @@ class JsonResponse:
         total: int = None,
         page_size: int = None,
         header: dict = None,
+        code: int = None,
         **kwargs
     ):
         data = {
@@ -173,7 +174,7 @@ class JsonResponse:
             "pageSize": page_size,
             "total": total,
         }
-        return cls.response(data=data, headers=header, **kwargs)
+        return cls.response(data=data, headers=header,code=code, **kwargs)
 
     # 一般常用的是成功的返回,因为,把他用Python的魔法函数__call__来表示,这样更加简洁
     def __call__(
