@@ -241,13 +241,13 @@ def delete_project():
     return JsonResponse.success_response(msg="删除项目成功")
 
 # 获取测试项目列表
-@auto_pytest.route('/get_project_list', methods=['GET', 'POST'])
+@auto_pytest.route('/get_project_list', methods=['GET'])
 def get_project_list():
     projects = Project.select()
-    data = request.get_json()
-    project_name = data.get("project_name")
-    project_desc = data.get("project_desc")
-    project_owners = data.get("project_owners")
+    # data = request.get_json()
+    project_name = request.args.get("project_name")
+    project_desc = request.args.get("project_desc")
+    project_owners = request.args.get("project_owners")
     if project_name:
         projects = projects.where(Project.project_name == project_name)
     if project_desc:
