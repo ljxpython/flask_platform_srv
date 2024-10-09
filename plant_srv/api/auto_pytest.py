@@ -237,7 +237,7 @@ def delete_project():
     if not project:
         return JsonResponse.error_response(msg="项目不存在")
     project = Project().get(project_name=project_name)
-    project.delete_instance()
+    project.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除项目成功")
 
 # 获取测试项目列表
@@ -296,7 +296,7 @@ def delete_tag():
     case_tag = CaseTag().get_or_none(tag=tag)
     if not case_tag:
         return JsonResponse.error_response(msg="标签不存在")
-    case_tag.delete_instance()
+    case_tag.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除标签成功")
 
 # 创建测试套件
@@ -443,7 +443,7 @@ def delete_suite():
     suite = Suite().get_or_none(suite_name=suite_name)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
-    suite.delete_instance()
+    suite.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除测试套件成功")
 
 # 根据suite_name创建测试
@@ -555,7 +555,7 @@ def delete_case_result():
     case = TestResult.get_or_none(id=id_)
     if not case:
         return JsonResponse.error_response(data="测试不存在")
-    case.delete_instance()
+    case.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除测试成功")
 
 # 执行自动化测试

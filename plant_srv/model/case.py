@@ -11,7 +11,7 @@ from plant_srv.utils.log_moudle import logger
 '''
 
 class CaseMoudle(BaseModel):
-  moudle = CharField(max_length=100, null=False, verbose_name="模块名称",primary_key=True)
+  moudle = CharField(max_length=100, null=False, verbose_name="模块名称",unique=True)
   desc = TextField( null=True, verbose_name="模块描述")
 
 class CaseFunc(BaseModel):
@@ -37,12 +37,12 @@ class CaseFunc(BaseModel):
     primary_key = CompositeKey('case_path', 'case_func')
 
 class Project(BaseModel):
-  project_name = CharField(max_length=100, verbose_name="项目名称",primary_key=True)
+  project_name = CharField(max_length=100, verbose_name="项目名称",unique=True)
   project_desc = TextField( null=True, verbose_name="项目描述")
   project_owners = CharField(verbose_name="可执行测试的人员")
 
 class Suite(BaseModel):
-  suite_name = CharField(max_length=100, verbose_name="套件名称", primary_key=True)
+  suite_name = CharField(max_length=100, verbose_name="套件名称", unique=True)
   # project_id 作为外键
   project_name = ForeignKeyField(Project, backref='suites', verbose_name="项目名称")
   # owners = CharField(verbose_name="可执行测试的人员")
@@ -61,7 +61,7 @@ class TestPlan(BaseModel):
   # 测试套件为外键
   suite_name = ForeignKeyField(Suite, verbose_name="suite_name")
   # 测试计划名称
-  plan_name = CharField(max_length=100, null=False, verbose_name="测试计划名称", primary_key=True)
+  plan_name = CharField(max_length=100, null=False, verbose_name="测试计划名称", unique=True)
   # 定时任务
   cron = CharField(max_length=100, null=False, verbose_name="定时任务")
   # 测试环境 线上线下
@@ -73,7 +73,6 @@ class TestPlan(BaseModel):
   plan_id = CharField(max_length=100, null=True, verbose_name="任务id")
 
 class TestResult(BaseModel):
-  # id = AutoField(primary_key=True)
   # 标题
   title = CharField(max_length=100, null=True, verbose_name="测试报告标题")
   # 外键 suite_name
@@ -110,6 +109,8 @@ if __name__ == '__main__':
     # TestPlan.create_table()
 
     # Project.drop_table()
+    # 删除表
+    database.drop_tables([CaseMoudle, CaseFunc,Project,Suite, TestPlan,TestResult, CaseTag])
     # 创建表
     database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestPlan,TestResult, CaseTag])
 

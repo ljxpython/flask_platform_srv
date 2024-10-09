@@ -103,7 +103,7 @@ def update_good():
 def delete_good():
     data = request.get_json()
     good = Goods.get(Goods.goodid == data["goodid"])
-    good.delete_instance()
+    good.delete_instance(permanently=True)
     return JsonResponse.success_response(data={"msg": "删除成功"})
 
 
