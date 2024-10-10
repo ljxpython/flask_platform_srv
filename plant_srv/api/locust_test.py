@@ -51,8 +51,8 @@ def sync_locust_case():
     同步测试用例
         1. 遍历目标文件夹,获取Case名称
     """
-    logger.info(settings.test.base_dir)
-    test_dir = os.path.join(settings.test.base_dir, "locustfiles")
+    logger.info(settings.locust_stress.base_dir)
+    test_dir = os.path.join(settings.locust_stress.base_dir, "locustfiles")
     # 遍历测试目录,获取该目录下所有文件夹的
     path = Path(test_dir)
     moudle_list = [x.name for x in path.iterdir() if x.is_dir()]
@@ -63,11 +63,11 @@ def sync_locust_case():
     for moudle_name in moudle_list:
         moudle_dir = path.joinpath(moudle_name)
         logger.info(moudle_dir)
-        # 寻到该目录下test开头的文件
+        # 寻到该目录下py文件除去__init__.py
         test_case_list = [
             x.name
             for x in moudle_dir.iterdir()
-            if x.is_file() and x.name.startswith("test")
+            if x.is_file() and x.suffix == ".py" and "__init__" not in x.name
         ]
         logger.info(test_case_list)
         for test_case_name in test_case_list:
@@ -77,13 +77,64 @@ def sync_locust_case():
             if result["module_docstring"]:
                 path_desc = result["module_docstring"]
                 logger.info(f"Module Docstring: {result['module_docstring']}")
+                # 同步数据库中
+                if not LocustFunc().get_or_none(case_path=test_py):
+                    LocustFunc.create(
+                        moudle=moudle_name,
+                        case_path=test_py,
+                        case_sence=test_py.stem,
+                        path_desc=path_desc,
+                    )
+                else:
+                    # 如果存在,则更新
+                    case_func = LocustFunc().get(
+                        LocustFunc.case_path == test_py,
+                    )
+                    case_func.moudle = moudle_name
+                    case_func.case_sence = test_py.stem
+                    case_func.path_desc = path_desc
+                    case_func.save()
 
-            for class_name, info in result["classes"].items():
-                logger.info(f"Class: {class_name}")
-                logger.info(f"  Docstring: {info['docstring']}")
-                for method_name, method_doc in info["methods"].items():
-                    logger.info(f"  Method: {method_name}")
-                    logger.info(f"    Docstring: {method_doc}")
-                    case_func = method_name
-                    case_func_desc = method_doc
-    return JsonResponse.success_response(data={"msg": "ok"})
+        ##TODO 这部分的逻辑也不严谨,如果有废弃的case,应该删除这条数据,这部分的逻辑没有完成,未来有时间 进行这部分的优化吧
+    return JsonResponse.success_response(
+        data={"moudle_list": moudle_list}, msg="同步压测测试模块成功,所有模块列表如上"
+    )
+
+
+# 根据条件查找locustcase
+@locust_test.route("/get_locust_case", methods=["GET"])
+def get_locust_case():
+    """
+    根据条件查找locustcase
+    """
+    cases = LocustFunc().select()
+    if request.args.get("moudle"):
+        cases = cases.where(LocustFunc.moudle == request.args.get("moudle"))
+    if request.args.get("case_sence"):
+        cases = cases.where(LocustFunc.case_sence == request.args.get("case_sence"))
+    if request.args.get("tags"):
+        cases = cases.where(LocustFunc.tags == request.args.get("tags"))
+    # 分页 limit offset
+    start = 0
+    per_page_nums = 10
+    if request.args.get("pageSize"):
+        per_page_nums = int(request.args.get("pageSize"))
+    if request.args.get("current"):
+        start = per_page_nums * (int(request.args.get("current")) - 1)
+    total = cases.count()
+    cases = cases.limit(per_page_nums).offset(start)
+    logger.info(cases.count())
+    case_list = []
+    # logger.info(cases.dicts())
+    for case in cases:
+        logger.info(case)
+        logger.info(model_to_dict(case))
+        case_list.append(
+            model_to_dict(case, exclude=[LocustFunc.add_time, LocustFunc.case_path])
+        )
+    return JsonResponse.list_response(
+        list_data=case_list,
+        current_page=start + 1,
+        total=total,
+        page_size=per_page_nums,
+    )

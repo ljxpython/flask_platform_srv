@@ -30,13 +30,13 @@ class LocustFunc(BaseModel):
     # case_sence 其实就是py的文件名
     case_sence = CharField(max_length=100, null=False, verbose_name="case场景")
     path_desc = TextField(null=False, verbose_name="接口描述")
-    case_func = CharField(
-        max_length=100, null=False, verbose_name="case函数名", unique=True
-    )
+    # case_func = CharField(
+    #     max_length=100, null=False, verbose_name="case函数名", unique=True
+    # )
     tags = CharField(max_length=100, null=True, verbose_name="标签")
 
-    class Meta:
-        primary_key = CompositeKey("case_path", "case_func")
+    # class Meta:
+    #     primary_key = CompositeKey("case_path", "case_func")
 
 
 class LocustSuite(BaseModel):
