@@ -138,3 +138,116 @@ def get_locust_case():
         total=total,
         page_size=per_page_nums,
     )
+
+# 创建locust测试套件
+@locust_test.route("/create_locust_suite", methods=["POST"])
+def create_locust_suite():
+    """
+    创建locust测试套件
+    """
+    data = request.get_json()
+    suite_name = data.get("suite_name")
+    describe = data.get("describe")
+    case_ids = data.get("case_ids")
+    logger.info(f"suite_name:{suite_name},project_name:{describe}")
+    if not suite_name:
+        return JsonResponse.error_response(data="suite_name不能为空")
+    if LocustSuite().get_or_none(suite_name=suite_name):
+        return JsonResponse.error_response(data="suite_name已经存在")
+    suite = LocustSuite.create(
+        suite_name=suite_name, describe=describe, case_ids=case_ids
+    )
+    return JsonResponse.success_response(
+        data={"suite": model_to_dict(suite, exclude=[LocustSuite.is_deleted])},
+        msg="创建测试套件成功",
+    )
+# 根据case_sence同步测试套件
+@locust_test.route("/sync_locust_suite_by_case_ids", methods=["POST"])
+def sync_locust_suite():
+    """
+    根据case_sence同步测试套件
+    请求例子:
+    {
+    "suite_name":"good-test-1",
+    "case_sences": ["test_good_add_del","test_update_good"]
+}
+    """
+    data = request.get_json()
+    id_ = data.get("id")
+    suite_name = data.get("suite_name")
+    case_sences = data.get("case_sences")
+    if not id_:
+        return JsonResponse.error_response(data="测试套件id不能为空")
+    # if not suite_name:
+    #     return JsonResponse.error_response(data="测试套件名称不能为空")
+    if not case_sences:
+        return JsonResponse.error_response(data="测试场景不能为空")
+    # 根据case_sences查找case集合
+    cases = LocustFunc.select().where(LocustFunc.case_sence.in_(case_sences))
+    # 如果为空,则抛出异常
+    count = cases.count()
+    case_ids = []
+    if count == 0:
+        return JsonResponse.error_response(data="测试场景不存在")
+    for case in cases:
+        logger.info(case.case_path)
+        case_ids.append(case.case_path)
+    # 对case_ids进行去重
+    # logger.info(case_ids)
+    case_ids = list(set(case_ids))
+    # logger.info(case_ids)
+    # 根据suite_name查找测试套件
+    suite = LocustSuite().get_or_none(id=id_)
+    if not suite:
+        return JsonResponse.error_response(data="测试套件不存在")
+    suite = LocustSuite.get(id = id_)
+    suite.case_ids = " ".join(case_ids)
+    logger.info(suite.case_ids)
+    suite.save()
+    return JsonResponse.success_response(
+        data={"suite": model_to_dict(suite, exclude=[LocustSuite.is_deleted])},
+        msg="同步测试套件成功",
+    )
+# 查询locust测试套件
+@locust_test.route("/query_locust_suite", methods=["GET"])
+def query_locust_suite():
+    suite_name = request.args.get("suite_name")
+    id_ = request.args.get("id")
+    suites = LocustSuite.select()
+    if suite_name:
+        suites = suites.where(LocustSuite.suite_name == suite_name)
+    if id_:
+        suites = suites.where(LocustSuite.id == id_)
+    suite_list = []
+    # 分页 limit offset
+    start = 0
+    per_page_nums = 10
+    if request.args.get("pageSize"):
+        per_page_nums = int(request.args.get("pageSize"))
+    if request.args.get("current"):
+        start = per_page_nums * (int(request.args.get("current")) - 1)
+    total = suites.count()
+    suites = suites.limit(per_page_nums).offset(start)
+    for suite in suites:
+        suite_list.append(model_to_dict(suite, exclude=[LocustSuite.is_deleted]))
+    return JsonResponse.list_response(
+        list_data=suite_list,
+        total=total,
+        current_page=start + 1,
+        page_size=per_page_nums,
+    )
+
+# 删除测试套件
+@locust_test.route("/delete_locust_suite", methods=["POST"])
+def delete_locust_suite():
+    data = request.get_json()
+    id_ = data.get("id")
+    if not id_:
+        return JsonResponse.error_response(data="测试套件id不能为空")
+    suite = LocustSuite().get_or_none(id=id_)
+    if not suite:
+        return JsonResponse.error_response(data="测试套件不存在")
+    suite = LocustSuite().get(id=id_)
+    suite.delete_instance(permanently=True)
+    return JsonResponse.success_response(msg="删除测试套件成功")
+

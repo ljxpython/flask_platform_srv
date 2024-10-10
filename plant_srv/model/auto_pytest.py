@@ -17,10 +17,8 @@ class CaseMoudle(BaseModel):
 
 
 class CaseFunc(BaseModel):
-    # id = AutoField()
     # 外键
-    # moudle = CharField(max_length=100,null=False,verbose_name="接口模块eg:test.goods")
-    moudle = ForeignKeyField(CaseMoudle, verbose_name="所属模块", backref="case_func")
+    casemoudle = ForeignKeyField(CaseMoudle, verbose_name="所属模块", backref="case_func")
     case_path = CharField(
         max_length=100,
         null=False,
@@ -28,23 +26,15 @@ class CaseFunc(BaseModel):
         unique=True,
     )
     # case_sence 其实就是py的文件名
-    case_sence = CharField(max_length=100, null=False, verbose_name="case场景")
-    path_desc = TextField(null=False, verbose_name="接口描述")
+    case_sence = CharField(max_length=100, null=True, verbose_name="case场景")
+    path_desc = TextField(null=True, verbose_name="接口描述")
     case_func = CharField(
-        max_length=100, null=False, verbose_name="case函数名", unique=True
+        max_length=100, null=True, verbose_name="case函数名"
     )
-    case_func_desc = TextField(null=False, verbose_name="case函数描述")
+    case_func_desc = TextField(null=True, verbose_name="case函数描述")
     tags = CharField(max_length=100, null=True, verbose_name="标签")
-
-    # name = CharField(max_length=100, null=False, verbose_name="用例名称")
-    # url = CharField(max_length=100, null=False, verbose_name="接口地址")
-    # method = CharField(max_length=10, null=False, verbose_name="请求方法")
-    # headers = TextField(null=True, verbose_name="请求头")
-    # params = TextField(null=True, verbose_name="请求参数")
-    # body = TextField(null=True, verbose_name="请求体")
-    # expect = TextField(null=True, verbose_name="预期结果")
-    class Meta:
-        primary_key = CompositeKey("case_path", "case_func")
+    # class Meta:
+    #     primary_key = CompositeKey("case_path", "case_func")
 
 
 class Project(BaseModel):
@@ -56,7 +46,7 @@ class Project(BaseModel):
 class Suite(BaseModel):
     suite_name = CharField(max_length=100, verbose_name="套件名称", unique=True)
     # project_id 作为外键
-    project_name = ForeignKeyField(Project, backref="suites", verbose_name="项目名称")
+    project = ForeignKeyField(Project, backref="suites", verbose_name="项目名称")
     # owners = CharField(verbose_name="可执行测试的人员")
     describe = TextField(verbose_name="套件描述")
     # 需要执行的case集
@@ -73,7 +63,7 @@ class Suite(BaseModel):
 # 测试计划,配置定期任务
 class TestPlan(BaseModel):
     # 测试套件为外键
-    suite_name = ForeignKeyField(Suite, verbose_name="suite_name")
+    suite = ForeignKeyField(Suite, verbose_name="suite_name")
     # 测试计划名称
     plan_name = CharField(
         max_length=100, null=False, verbose_name="测试计划名称", unique=True
@@ -93,7 +83,7 @@ class TestResult(BaseModel):
     # 标题
     title = CharField(max_length=100, null=True, verbose_name="测试报告标题")
     # 外键 suite_name
-    suite_name = ForeignKeyField(Suite, verbose_name="suite_name")
+    suite = ForeignKeyField(Suite, verbose_name="suite_name")
     # 运行的状态 0 代表运行中 1 代表流程结束
     status = IntegerField(null=True, default=0, verbose_name="运行状态")
     # 测试结果 成功,失败,部分失败
@@ -114,26 +104,15 @@ class TestResult(BaseModel):
 
 
 class CaseTag(BaseModel):
-    # id = AutoField()
     tag = CharField(max_length=100, null=False, verbose_name="标签", unique=True)
 
 
 if __name__ == "__main__":
-    # 创建表
-    # # database.create_tables([CaseMoudle, CaseFunc,Project,Suite, TestResult, CaseTag])
     # # 删除表
-    # TestResult.drop_table()
-    # TestResult.create_table()
-    # Suite.drop_table()
-    # TestPlan.drop_table()
-    # TestPlan.create_table()
-
-    # Project.drop_table()
-    # 删除表
-    database.drop_tables(
-        [CaseMoudle, CaseFunc, Project, Suite, TestPlan, TestResult, CaseTag]
-    )
-    # 创建表
+    # database.drop_tables(
+    #     [CaseMoudle, CaseFunc, Project, Suite, TestPlan, TestResult, CaseTag]
+    # )
+    # # 创建表
     database.create_tables(
         [CaseMoudle, CaseFunc, Project, Suite, TestPlan, TestResult, CaseTag]
     )

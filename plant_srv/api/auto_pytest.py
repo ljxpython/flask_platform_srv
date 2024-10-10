@@ -98,23 +98,61 @@ def update_test_moudle():
     给测试模块添加相应的描述
     """
     data = request.get_json()
+    id_ = data.get("id")
     moudle_name = data.get("moudle_name")  # 测试模块名称
     moudle_desc = data.get("moudle_desc")  # 测试模块描述
     logger.info(f"moudle_name:{moudle_name},moudle_desc:{moudle_desc}")
     # 查询数据库中是否存在该Moudle,如果存在,则更新,如果不存在,则返回错误
-    c = CaseMoudle().get_or_none(moudle=moudle_name)
+    c = CaseMoudle().get_or_none(id=id_)
     logger.info(c)
     if c:  # 如果存在,则更新
         logger.info(f"该模块存在,进行更新操作")
-        casemoudle = CaseMoudle().get(CaseMoudle.moudle == moudle_name)
+        casemoudle = CaseMoudle().get(id=id_)
+        casemoudle.moudle_name = moudle_name
         casemoudle.moudle_desc = moudle_desc
         casemoudle.save()
     else:
-        raise UserException("该模块不存在数据库中,请先同步测试模块")
+        return JsonResponse.error_response(data="该模块不存在数据库中,请先同步测试模块")
     return JsonResponse.success_response(
         data={"moudle_name": moudle_name, "moudle_desc": moudle_desc},
         msg="更新测试模块成功",
     )
+
+# 查询测试模块
+@auto_pytest.route("/query_test_moudle", methods=["GET"])
+def query_test_moudle():
+    """
+    查询测试模块
+    """
+    id_ = request.args.get("id")
+    moudle_list = CaseMoudle().select()
+    if id_:
+        moudle_list = moudle_list.where(CaseMoudle.id == id_)
+    # 分页 limit offset
+    start = 0
+    per_page_nums = 10
+    if request.args.get("pageSize"):
+        per_page_nums = int(request.args.get("pageSize"))
+    if request.args.get("current"):
+        start = per_page_nums * (int(request.args.get("current")) - 1)
+    total = moudle_list.count()
+    cases = moudle_list.limit(per_page_nums).offset(start)
+    logger.info(cases.count())
+    case_list = []
+    # logger.info(cases.dicts())
+    for case in cases:
+        logger.info(case)
+        logger.info(model_to_dict(case))
+        case_list.append(
+            model_to_dict(case, exclude=[CaseMoudle.add_time, CaseMoudle.is_deleted])
+        )
+    return JsonResponse.list_response(
+        list_data=case_list,
+        current_page=start + 1,
+        total=total,
+        page_size=per_page_nums,
+    )
+
 
 
 # 同步测试用例
@@ -147,6 +185,7 @@ def sync_test_case():
             test_py = moudle_dir.joinpath(test_case_name)
             logger.info(test_py.stem)
             result = get_classes_methods_and_module_doc(test_py)
+            path_desc = ""
             if result["module_docstring"]:
                 path_desc = result["module_docstring"]
                 logger.info(f"Module Docstring: {result['module_docstring']}")
@@ -161,14 +200,18 @@ def sync_test_case():
                     case_func_desc = method_doc
                     # 同步数据库中
                     if not CaseFunc().get_or_none(
-                        case_func=case_func, case_path=test_py.stem
+                        case_func=case_func, case_path=test_py
                     ):
+                        logger.info(f"{moudle_name}")
+                        # casemoudl
+                        case_moudle = CaseMoudle().get_or_none(moudle=moudle_name)
+                        logger.info(case_moudle)
                         case_func = CaseFunc.create(
-                            moudle=moudle_name,
-                            case_path=test_py,  # 主键
+                            casemoudle=case_moudle,
+                            case_path=test_py,
                             case_sence=test_py.stem,
                             path_desc=path_desc,
-                            case_func=case_func,  # 主键
+                            case_func=case_func,
                             case_func_desc=case_func_desc,
                         )
                     else:
@@ -177,8 +220,10 @@ def sync_test_case():
                             CaseFunc.case_func == case_func,
                             CaseFunc.case_path == test_py,
                         )
+                        case_moudle = CaseMoudle().get_or_none(moudle=moudle_name)
+                        logger.info(case_moudle)
                         case_func.case_func_desc = case_func_desc
-                        case_func.moudle = moudle_name
+                        case_func.casemoudle = case_moudle
                         case_func.case_sence = test_py.stem
                         case_func.path_desc = path_desc
                         case_func.save()
@@ -259,13 +304,18 @@ def create_project():
 @auto_pytest.route("/update_project", methods=["POST"])
 def update_project():
     data = request.get_json()
+    id_ = data.get("id")
     project_name = data.get("project_name")
     project_desc = data.get("project_desc")
     project_owners = data.get("project_owners")
-    project = Project().get_or_none(project_name=project_name)
+    if not id_:
+        return JsonResponse.error_response(data="项目id不能为空")
+    project = Project().get_or_none(id=id_)
     if not project:
         return JsonResponse.error_response(data="项目不存在")
-    project = Project().get(project_name=project_name)
+    project = Project().get(id=id_)
+    if project_name:
+        project.project_name = project_name
     if project_desc:
         project.project_desc = project_desc
     if project_owners:
@@ -281,11 +331,15 @@ def update_project():
 @auto_pytest.route("/delete_project", methods=["POST"])
 def delete_project():
     data = request.get_json()
-    project_name = data.get("project_name")
-    project = Project().get_or_none(project_name=project_name)
+    id_ = data.get("id")
+    # project_name = data.get("project_name")
+    if not id_:
+        return JsonResponse.error_response(data="项目id不能为空")
+    project = Project().get_or_none(id=id_)
     if not project:
         return JsonResponse.error_response(msg="项目不存在")
-    project = Project().get(project_name=project_name)
+    else:
+        logger.info(model_to_dict(project))
     project.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除项目成功")
 
@@ -295,9 +349,12 @@ def delete_project():
 def get_project_list():
     projects = Project.select()
     # data = request.get_json()
+    id_ = request.args.get("id")
     project_name = request.args.get("project_name")
     project_desc = request.args.get("project_desc")
     project_owners = request.args.get("project_owners")
+    if id_:
+        projects = projects.where(Project.id == id_)
     if project_name:
         projects = projects.where(Project.project_name == project_name)
     if project_desc:
@@ -367,23 +424,17 @@ def delete_tag():
 def create_suite():
     data = request.get_json()
     suite_name = data.get("suite_name")
-    project_name = data.get("project_name")
+    project = data.get("project_id")
     describe = data.get("describe")
     case_ids = data.get("case_ids")
-    # test_type = data.get("test_type")
-    # test_env = data.get("test_env")
-    logger.info(f"suite_name:{suite_name},project_name:{project_name}")
+
     if not suite_name:
         return JsonResponse.error_response(data="测试套件名称不能为空")
-    if not project_name:
-        return JsonResponse.error_response(data="测试项目不能为空")
-    if not case_ids:
-        return JsonResponse.error_response(data="测试用例不能为空")
-    # if not test_type:
-    #     return JsonResponse.error_response(data="测试类型不能为空")
-    # if not test_env:
-    #     return JsonResponse.error_response(data="测试环境不能为空")
-    project = Project().get_or_none(project_name=project_name)
+    if not project:
+        return JsonResponse.error_response(data="测试项目id不能为空")
+    # if not case_ids:
+    #     return JsonResponse.error_response(data="测试用例不能为空")
+    project = Project().get_or_none(id=project)
     if not project:
         return JsonResponse.error_response(data="测试项目不存在")
     if Suite().get_or_none(suite_name=suite_name):
@@ -391,7 +442,7 @@ def create_suite():
     logger.info(f"创建测试套件: {suite_name}")
     suite = Suite.create(
         suite_name=suite_name,
-        project_name=project_name,
+        project=project,
         describe=describe,
     )
     suite.case_ids = case_ids
@@ -406,10 +457,13 @@ def create_suite():
 @auto_pytest.route("/sync_suite_by_case_ids", methods=["POST"])
 def sync_suite_by_case_ids():
     data = request.get_json()
+    id_ = data.get("id")
     suite_name = data.get("suite_name")
     case_sences = data.get("case_sences")
-    if not suite_name:
-        return JsonResponse.error_response(data="测试套件名称不能为空")
+    if not id_:
+        return JsonResponse.error_response(data="测试套件id不能为空")
+    # if not suite_name:
+    #     return JsonResponse.error_response(data="测试套件名称不能为空")
     if not case_sences:
         return JsonResponse.error_response(data="测试场景不能为空")
     # 根据case_sences查找case集合
@@ -427,10 +481,10 @@ def sync_suite_by_case_ids():
     case_ids = list(set(case_ids))
     # logger.info(case_ids)
     # 根据suite_name查找测试套件
-    suite = Suite().get_or_none(suite_name=suite_name)
+    suite = Suite().get_or_none(id=id_)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
-    suite = Suite.get(Suite.suite_name == suite_name)
+    # suite = Suite.get(Suite.suite_name == suite_name)
     suite.case_ids = " ".join(case_ids)
     logger.info(suite.case_ids)
     suite.save()
@@ -444,19 +498,22 @@ def sync_suite_by_case_ids():
 @auto_pytest.route("/get_suite_list", methods=["GET"])
 def get_suite_list():
     # data = request.get_json()
-    project_name = request.args.get("project_name")
+    id_ = request.args.get("id")
+    project = request.args.get("project_id")
     suite_name = request.args.get("suite_name")
-    test_type = request.args.get("test_type")
-    test_env = request.args.get("test_env")
+    # test_type = request.args.get("test_type")
+    # test_env = request.args.get("test_env")
     suites = Suite.select()
-    if project_name:
-        suites = suites.where(Suite.project_name == project_name)
+    if id_:
+        suites = suites.where(Suite.id == id_)
+    if project:
+        suites = suites.where(Suite.project == project)
     if suite_name:
         suites = suites.where(Suite.suite_name == suite_name)
-    if test_type:
-        suites = suites.where(Suite.test_type == test_type)
-    if test_env:
-        suites = suites.where(Suite.test_env == test_env)
+    # if test_type:
+    #     suites = suites.where(Suite.test_type == test_type)
+    # if test_env:
+    #     suites = suites.where(Suite.test_env == test_env)
     suite_list = []
     # 分页 limit offset
     start = 0
@@ -481,20 +538,23 @@ def get_suite_list():
 @auto_pytest.route("/update_suite", methods=["POST"])
 def update_suite():
     data = request.get_json()
+    id_ = data.get("id")
     suite_name = data.get("suite_name")
-    project_name = data.get("project_name")
+    project = data.get("project_id")
     describe = data.get("describe")
     case_ids = data.get("case_ids")
     test_type = data.get("test_type")
     test_env = data.get("test_env")
-    if not suite_name:
-        return JsonResponse.error_response(data="测试套件名称不能为空")
-    suite = Suite().get_or_none(suite_name=suite_name)
+    if not id_:
+        return JsonResponse.error_response(data="测试套件id不能为空")
+    # if not suite_name:
+    #     return JsonResponse.error_response(data="测试套件名称不能为空")
+    suite = Suite().get_or_none(id=id_)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
-    if project_name:
-        project = Project().get_or_none(project_name=project_name)
-        if not project:
+    if project:
+        p = Project().get_or_none(id=project)
+        if not p:
             return JsonResponse.error_response(data="测试项目不存在")
         suite.project = project
     if describe:
@@ -516,10 +576,11 @@ def update_suite():
 @auto_pytest.route("/delete_suite", methods=["POST"])
 def delete_suite():
     data = request.get_json()
+    id_ = data.get("id")
     suite_name = data.get("suite_name")
-    if not suite_name:
-        return JsonResponse.error_response(data="测试套件名称不能为空")
-    suite = Suite().get_or_none(suite_name=suite_name)
+    if not id_:
+        return JsonResponse.error_response(data="测试套件id不能为空")
+    suite = Suite().get_or_none(id=id_)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
     suite.delete_instance(permanently=True)
@@ -531,7 +592,7 @@ def delete_suite():
 def create_case_result():
     data = request.get_json()
     title = data.get("title")
-    suite_name = data.get("suite_name")
+    suite = data.get("suite_id")
     status = data.get("status")
     result = data.get("result")
     report_link = data.get("report_link")
@@ -539,15 +600,15 @@ def create_case_result():
     last_report_id = data.get("last_report_id")
     test_type = data.get("test_type")
     test_env = data.get("test_env")
-    if not suite_name:
+    if not suite:
         return JsonResponse.error_response(data="测试套件名称不能为空")
     # 如果测试套件不存在Suite表,报错
-    suite = Suite().get_or_none(suite_name=suite_name)
+    suite = Suite().get_or_none(id=suite)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
     case = TestResult.create(
         title=title,
-        suite_name=suite_name,
+        suite=suite,
         status=status,
         result=result,
         report_link=report_link,
@@ -566,14 +627,14 @@ def create_case_result():
 @auto_pytest.route("/get_case_result", methods=["GET"])
 def get_case_result():
     cases = TestResult.select()
-    suite_name = request.args.get("suite_name")
+    suite = request.args.get("suite_id")
     status = request.args.get("status")
     result = request.args.get("result")
     id = request.args.get("id")
     test_type = request.args.get("test_type")
     test_env = request.args.get("test_env")
-    if suite_name:
-        cases = cases.where(TestResult.suite_name == suite_name)
+    if suite:
+        cases = cases.where(TestResult.suite == suite)
     if status:
         cases = cases.where(TestResult.status == status)
     if result:
@@ -614,7 +675,7 @@ def get_case_result():
 def update_case_result():
     data = request.get_json()
     id_ = data.get("id")
-    suite_name = data.get("suite_name")
+    suite = data.get("suite_id")
     status = data.get("status")
     result = data.get("result")
     report_link = data.get("report_link")
@@ -627,8 +688,8 @@ def update_case_result():
     case = TestResult.get_or_none(id=id_)
     if not case:
         return JsonResponse.error_response(data="测试不存在")
-    if suite_name:
-        case.suite_name = suite_name
+    if suite:
+        case.suite = suite
     if status:
         case.status = status
     if result:
@@ -667,16 +728,16 @@ def run_case_result():
     create_case_result()
     # logger.info(resp.response)
     result = TestResult.get(id=g.id)
-    suite_name = result.suite_name.suite_name
-    project_name = result.suite_name.project_name.project_name
-    test_type = result.suite_name.test_type
-    test_env = result.suite_name.test_env
+    suite = result.suite.id
+    project = result.suite.project.id
+    test_type = result.suite.test_type
+    test_env = result.suite.test_env
     satrt_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     logger.info(model_to_dict(result))
     task_id = run_openapi_test.delay(
         cases=1,
-        project_name=project_name,
-        suite_name=suite_name,
+        project_name=project,
+        suite_name=suite,
         test_type=test_type,
         test_env=test_env,
         start_time=satrt_time,
@@ -705,17 +766,15 @@ def run_case_result_by_time():
     logger.info(f"run_time:{run_time},start_time:{start_time}")
     create_case_result()  # 先创建好一个测试任务,等待执行
     result = TestResult.get(id=g.id)
-    suite_name = result.suite_name.suite_name
-    project_name = result.suite_name.project_name.project_name
-    # test_type = result.suite_name.test_type
-    # test_env = result.suite_name.test_env
+    suite = result.suite.id
+    project = result.suite.project.id
     logger.info(model_to_dict(result))
     task_id = run_openapi_test.apply_async(
         eta=datetime.utcfromtimestamp(run_time.timestamp()),
         kwargs={
             "cases": 1,
-            "project_name": project_name,
-            "suite_name": suite_name,
+            "project_name": project,
+            "suite_name": suite,
             "test_type": test_type,
             "test_env": test_env,
             "start_time": start_time,
@@ -769,10 +828,13 @@ def create_case_plant():
 @auto_pytest.route("/del_case_plant", methods=["POST"])
 def del_case_plant():
     data = request.get_json()
-    plan_name = data.get("plan_name")
-    if not plan_name:
-        return JsonResponse.error_response(data="测试计划名称不能为空")
-    plan_name = TestPlan.get_or_none(plan_name=plan_name)
+    id_ = data.get('id')
+    if not id_:
+        return JsonResponse.error_response(data="测试计划id不能为空")
+    # plan_name = data.get("plan_name")
+    # if not plan_name:
+    #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    plan_name = TestPlan.get_or_none(id=id_)
     if not plan_name:
         return JsonResponse.error_response(data="测试计划不存在")
     plan_name.delete_instance(permanently=True)
@@ -783,21 +845,24 @@ def del_case_plant():
 @auto_pytest.route("/update_case_plant", methods=["POST"])
 def update_case_plant():
     data = request.get_json()
+    id_ = data.get("id")
     plan_name = data.get("plan_name")
-    suite_name = data.get("suite_name")
+    suite = data.get("suite_id")
     cron = data.get("cron")
     test_env = data.get("test_env")
-    if not plan_name:
-        return JsonResponse.error_response(data="测试计划名称不能为空")
-    plan = TestPlan.get_or_none(plan_name=plan_name)
+    if not id_:
+        return JsonResponse.error_response(data="测试计划id不能为空")
+    # if not plan_name:
+    #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    plan = TestPlan.get_or_none(id=id_)
     if not plan:
         return JsonResponse.error_response(data="测试计划不存在")
-    plan = TestPlan.get(plan_name=plan_name)
-    if suite_name:
-        suite = Suite.get_or_none(suite_name=suite_name)
+    # plan = TestPlan.get(plan_name=plan_name)
+    if suite:
+        suite = Suite.get_or_none(id=suite)
         if not suite:
             return JsonResponse.error_response(data="测试套件不存在")
-        plan.suite_name = suite_name
+        plan.suite = suite
         plan.save()
     if test_env:
         if test_env not in ["dev", "test", "prod", "online", "boe"]:
@@ -814,10 +879,12 @@ def update_case_plant():
 @auto_pytest.route("/list_case_plant", methods=["GET"])
 def list_case_plant():
     plans = TestPlan.select()
+    if request.args.get("id"):
+        plans = plans.where(TestPlan.id == request.args.get("id"))
     if request.args.get("plan_name"):
         plans = plans.where(TestPlan.plan_name == request.args.get("plan_name"))
-    if request.args.get("suite_name"):
-        plans = plans.where(TestPlan.suite_name == request.args.get("suite_name"))
+    if request.args.get("suite_id"):
+        plans = plans.where(TestPlan.suite == request.args.get("suite_id"))
     if request.args.get("test_env"):
         plans = plans.where(TestPlan.test_env == request.args.get("test_env"))
     # 分页 limit offset
@@ -951,6 +1018,7 @@ def set_case_result_by_cron():
         run_date：指定在某个具体的日期和时间触发。
     """
     data = request.get_json()
+    id_ = data.get("id")
     plan_name = data.get("plan_name")
     is_open = data.get("is_open")
     trigger = data.get("trigger", "cron")
@@ -962,16 +1030,18 @@ def set_case_result_by_cron():
     day_of_week = data.get("day_of_week", "0-6")
     run_once = data.get("run_once", False)
     update_corn = data.get("update_corn", False)
-    if not plan_name:
-        return JsonResponse.error_response(data="测试计划名称不能为空")
-    plan = TestPlan.get_or_none(plan_name=plan_name)
+    if not id_:
+        return JsonResponse.error_response(data="id不能为空")
+    # if not plan_name:
+    #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    plan = TestPlan.get_or_none(id=id_)
     if not plan:
         return JsonResponse.error_response(data="测试计划不存在")
     if not is_open:
         return JsonResponse.error_response(data="开启或关闭不能为空")
     if is_open not in ["on", "off"]:
         return JsonResponse.error_response(data="开启或关闭参数不正确")
-    plan = TestPlan.get(plan_name=plan_name)
+    plan = TestPlan.get(id=id_)
     if not cron:
         cron = plan.cron
     if plan.is_open == is_open:
@@ -996,7 +1066,7 @@ def set_case_result_by_cron():
                 f"{minute} {hour} {day} {month} {day_of_week}"
             ),
             kwargs={
-                "suite_name": plan.suite_name.suite_name,
+                "suite_name": plan.suite.id,
                 "test_type": "cron",
                 "test_env": plan.test_env,
                 "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
@@ -1053,13 +1123,14 @@ def webhook():
 
 
 # 需要封装执行自动化测试及把结果写入到case中的一个方法,或者,通过pytest框架的main.py来完成
-def create_run_case(suite_name, test_type, test_env, start_time):
+def create_run_case(suite, test_type, test_env, start_time):
     # 创建一个测试计划等待执行
-    suite = Suite().get_or_none(suite_name=suite_name)
+    suite = Suite().get_or_none(id=suite)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
-    suite = Suite.get(suite_name=suite_name)
-    project_name = suite.project_name.project_name
+    # suite = Suite.get(suite_name=suite_name)
+    suite_name = suite.suite_name
+    project_name = suite.project.project_name
     title = f"{project_name}-{suite_name}-{test_type}-{test_env}-{start_time}"
     case = TestResult.create(
         title=title, suite_name=suite_name, test_type=test_type, test_env=test_env

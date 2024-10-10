@@ -29,7 +29,7 @@ class LocustFunc(BaseModel):
     )
     # case_sence 其实就是py的文件名
     case_sence = CharField(max_length=100, null=False, verbose_name="case场景")
-    path_desc = TextField(null=False, verbose_name="接口描述")
+    path_desc = TextField(null=True, verbose_name="接口描述")
     # case_func = CharField(
     #     max_length=100, null=False, verbose_name="case函数名", unique=True
     # )
@@ -41,16 +41,16 @@ class LocustFunc(BaseModel):
 
 class LocustSuite(BaseModel):
     suite_name = CharField(max_length=100, verbose_name="套件名称", unique=True)
-    describe = TextField(verbose_name="套件描述")
+    describe = TextField(verbose_name="套件描述", null=True)
     # 需要执行的case集
-    case_ids = TextField(verbose_name="需要执行的case集")
+    case_ids = TextField(verbose_name="需要执行的case集",null=True)
 
 
 class LocustTestResult(BaseModel):
     # 标题
     title = CharField(max_length=100, null=True, verbose_name="测试报告标题")
     # 外键 suite_name
-    suite_name = ForeignKeyField(LocustSuite, verbose_name="suite_name")
+    locustsuite = ForeignKeyField(LocustSuite, verbose_name="suite_name")
     # 运行的状态 0 代表运行中 1 代表流程结束
     status = IntegerField(null=True, default=0, verbose_name="运行状态")
     # 测试结果 成功,失败,部分失败,这部分暂时预留出来
