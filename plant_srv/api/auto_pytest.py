@@ -5,7 +5,6 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 
 from apscheduler.triggers.cron import CronTrigger
-from celery.schedules import crontab
 from flask import (
     Blueprint,
     g,
@@ -27,7 +26,6 @@ from playhouse.shortcuts import model_to_dict
 
 from conf.config import settings
 from conf.constants import Config, reports_dir, template_dir
-from plant_srv.model.async_task import AsyncTask
 from plant_srv.model.auto_pytest import (
     CaseFunc,
     CaseMoudle,
@@ -37,17 +35,22 @@ from plant_srv.model.auto_pytest import (
     TestPlan,
     TestResult,
 )
-from plant_srv.model.modelsbase import database
 from plant_srv.utils.anlaysis import get_classes_methods_and_module_doc
 from plant_srv.utils.apscheduler_util.extensions import scheduler
 from plant_srv.utils.apscheduler_util.tasks import run_openapi_test_by_apschedule, task2
-from plant_srv.utils.celery_util.check_task import task_result
-from plant_srv.utils.celery_util.task.openapi_task import run_openapi_test
 from plant_srv.utils.celery_util.task.task_demo import add_together
 from plant_srv.utils.error_handle import UserException
-from plant_srv.utils.file_operation import file_opreator
 from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
+from plant_srv.utils.flask_util import flask_util
+
+
+'''
+TODO:
+    已经完成了分页查询的封装
+    其实增删改查接口都是可以实现封装的,这个可以留到后面封装优化
+
+'''
 
 auto_pytest = Blueprint(
     "auto_pytest", __name__, url_prefix="/auto_pytest", template_folder=reports_dir
@@ -455,7 +458,7 @@ def create_suite():
     suite.case_ids = case_ids
     suite.save()
     return JsonResponse.success_response(
-        data={"suite": model_to_dict(suite, exclude=[Suite.is_deleted])},
+        data={"suite": model_to_dict(suite, exclude=[Suite.is_deleted,Suite.case_ids])},
         msg="创建测试套件成功",
     )
 
@@ -465,7 +468,6 @@ def create_suite():
 def sync_suite_by_case_ids():
     data = request.get_json()
     id_ = data.get("id")
-    suite_name = data.get("suite_name")
     case_sences = data.get("case_sences")
     if not id_:
         return JsonResponse.error_response(data="测试套件id不能为空")
@@ -491,12 +493,13 @@ def sync_suite_by_case_ids():
     suite = Suite().get_or_none(id=id_)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
-    # suite = Suite.get(Suite.suite_name == suite_name)
+    suite.case_sences = " ".join(case_sences)
+    suite.save()
     suite.case_ids = " ".join(case_ids)
     logger.info(suite.case_ids)
     suite.save()
     return JsonResponse.success_response(
-        data={"suite": model_to_dict(suite, exclude=[Suite.is_deleted])},
+        data={"suite": model_to_dict(suite, exclude=[Suite.is_deleted,Suite.case_ids])},
         msg="同步测试套件成功",
     )
 
@@ -532,7 +535,7 @@ def get_suite_list():
     total = suites.count()
     suites = suites.limit(per_page_nums).offset(start)
     for suite in suites:
-        suite_list.append(model_to_dict(suite, exclude=[Suite.is_deleted]))
+        suite_list.append(model_to_dict(suite, exclude=[Suite.is_deleted,Suite.case_ids]))
     return JsonResponse.list_response(
         list_data=suite_list,
         total=total,
@@ -803,135 +806,154 @@ def run_case_result_by_time():
 # 创建测试计划
 @auto_pytest.route("/create_case_plant", methods=["POST"])
 def create_case_plant():
-    data = request.get_json()
-    plan_name = data.get("plan_name")
-    suite_id = data.get("suite_id")
-    cron = data.get("cron")
-    test_env = data.get("test_env")
-    is_open = data.get("is_open", "off")
-    logger.info(f"plan_name:{plan_name},{suite_id},{cron},{test_env},{is_open}")
-    if not plan_name:
-        return JsonResponse.error_response(data="测试计划名称不能为空")
-    if not suite_id:
-        return JsonResponse.error_response(data="测试套件id名称不能为空")
-    suite = Suite().get_or_none(id=suite_id)
-    if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
-    if not cron:
-        return JsonResponse.error_response(data="定时任务不能为空")
-    if not test_env:
-        return JsonResponse.error_response(data="测试环境不能为空")
-    if not Suite.get_or_none(id=suite_id):
-        return JsonResponse.error_response(data="测试套件不存在")
-    plan_ = TestPlan.get_or_none(plan_name=plan_name)
-    if plan_:
-        return JsonResponse.error_response(data="测试计划名称已存在")
-    # suite = Suite.get_or_none(suite_name=suite_name)
+    resp = flask_util.create_model_instance(TestPlan)
+    return resp
+    # data = request.get_json()
+    # plan_name = data.get("plan_name")
+    # suite_id = data.get("suite_id")
+    # cron = data.get("cron")
+    # test_env = data.get("test_env")
+    # is_open = data.get("is_open", "off")
+    # logger.info(f"plan_name:{plan_name},{suite_id},{cron},{test_env},{is_open}")
+    # if not plan_name:
+    #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    # if not suite_id:
+    #     return JsonResponse.error_response(data="测试套件id名称不能为空")
+    # suite = Suite().get_or_none(id=suite_id)
     # if not suite:
     #     return JsonResponse.error_response(data="测试套件不存在")
-    if test_env not in ["dev", "test", "prod", "online", "boe"]:
-        return JsonResponse.error_response(
-            data="测试环境不正确,not in [dev,test,prod,online,boe]"
-        )
-    paln = TestPlan.create(
-        plan_name=plan_name,
-        suite=suite,
-        test_env=test_env,
-        cron=cron,
-        is_open=is_open,
-    )
-    return JsonResponse.success_response(
-        data=model_to_dict(paln, exclude=[TestPlan.is_deleted], recurse=False),
-        msg="创建测试计划成功",
-    )
+    # if not cron:
+    #     return JsonResponse.error_response(data="定时任务不能为空")
+    # if not test_env:
+    #     return JsonResponse.error_response(data="测试环境不能为空")
+    # if not Suite.get_or_none(id=suite_id):
+    #     return JsonResponse.error_response(data="测试套件不存在")
+    # plan_ = TestPlan.get_or_none(plan_name=plan_name)
+    # if plan_:
+    #     return JsonResponse.error_response(data="测试计划名称已存在")
+    # # suite = Suite.get_or_none(suite_name=suite_name)
+    # # if not suite:
+    # #     return JsonResponse.error_response(data="测试套件不存在")
+    # if test_env not in ["dev", "test", "prod", "online", "boe"]:
+    #     return JsonResponse.error_response(
+    #         data="测试环境不正确,not in [dev,test,prod,online,boe]"
+    #     )
+    # paln = TestPlan.create(
+    #     plan_name=plan_name,
+    #     suite=suite,
+    #     test_env=test_env,
+    #     cron=cron,
+    #     is_open=is_open,
+    # )
+    # return JsonResponse.success_response(
+    #     data=model_to_dict(paln, exclude=[TestPlan.is_deleted], recurse=False),
+    #     msg="创建测试计划成功",
+    # )
 
 
 # 删除测试计划
 @auto_pytest.route("/del_case_plant", methods=["POST"])
 def del_case_plant():
-    data = request.get_json()
-    id_ = data.get("id")
-    if not id_:
-        return JsonResponse.error_response(data="测试计划id不能为空")
-    # plan_name = data.get("plan_name")
+    # data = request.get_json()
+    # id_ = data.get("id")
+    # if not id_:
+    #     return JsonResponse.error_response(data="测试计划id不能为空")
+    # # plan_name = data.get("plan_name")
+    # # if not plan_name:
+    # #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    # plan_name = TestPlan.get_or_none(id=id_)
     # if not plan_name:
-    #     return JsonResponse.error_response(data="测试计划名称不能为空")
-    plan_name = TestPlan.get_or_none(id=id_)
-    if not plan_name:
-        return JsonResponse.error_response(data="测试计划不存在")
-    plan_name.delete_instance(permanently=True)
-    return JsonResponse.success_response(msg="删除测试计划成功")
+    #     return JsonResponse.error_response(data="测试计划不存在")
+    # plan_name.delete_instance(permanently=True)
+    # return JsonResponse.success_response(msg="删除测试计划成功")
+    resp = flask_util.delete_api(TestPlan)
+    return resp
 
 
 # 修改测试计划
 @auto_pytest.route("/update_case_plant", methods=["POST"])
 def update_case_plant():
-    data = request.get_json()
-    id_ = data.get("id")
-    plan_name = data.get("plan_name")
-    suite = data.get("suite_id")
-    cron = data.get("cron")
-    test_env = data.get("test_env")
-    if not id_:
-        return JsonResponse.error_response(data="测试计划id不能为空")
-    # if not plan_name:
-    #     return JsonResponse.error_response(data="测试计划名称不能为空")
-    plan = TestPlan.get_or_none(id=id_)
-    if not plan:
-        return JsonResponse.error_response(data="测试计划不存在")
-    # plan = TestPlan.get(plan_name=plan_name)
-    if suite:
-        suite = Suite.get_or_none(id=suite)
-        if not suite:
-            return JsonResponse.error_response(data="测试套件不存在")
-        plan.suite = suite
-        plan.save()
-    if test_env:
-        if test_env not in ["dev", "test", "prod", "online", "boe"]:
-            return JsonResponse.error_response(data="测试环境不正确")
-        plan.test_env = test_env
-        plan.save()
-    if cron:
-        plan.cron = cron
-        plan.save()
-    return JsonResponse.success_response(msg="修改测试计划成功")
+    resp = flask_util.update_api(
+        TestPlan,
+    )
+    return resp
+    # data = request.get_json()
+    # id_ = data.get("id")
+    # suite = data.get("suite_id")
+    # cron = data.get("cron")
+    # test_env = data.get("test_env")
+    # if not id_:
+    #     return JsonResponse.error_response(data="测试计划id不能为空")
+    # # if not plan_name:
+    # #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    # plan = TestPlan.get_or_none(id=id_)
+    # if not plan:
+    #     return JsonResponse.error_response(data="测试计划不存在")
+    # # plan = TestPlan.get(plan_name=plan_name)
+    # if suite:
+    #     suite = Suite.get_or_none(id=suite)
+    #     if not suite:
+    #         return JsonResponse.error_response(data="测试套件不存在")
+    #     plan.suite = suite
+    #     plan.save()
+    # if test_env:
+    #     if test_env not in ["dev", "test", "prod", "online", "boe"]:
+    #         return JsonResponse.error_response(data="测试环境不正确")
+    #     plan.test_env = test_env
+    #     plan.save()
+    # if cron:
+    #     plan.cron = cron
+    #     plan.save()
+    # return JsonResponse.success_response(msg="修改测试计划成功")
 
 
 # 根据条件查询测试计划列表
 @auto_pytest.route("/list_case_plant", methods=["GET"])
 def list_case_plant():
-    plans = TestPlan.select()
-    if request.args.get("id"):
-        plans = plans.where(TestPlan.id == request.args.get("id"))
-    if request.args.get("plan_name"):
-        plans = plans.where(TestPlan.plan_name == request.args.get("plan_name"))
-    if request.args.get("suite_id"):
-        plans = plans.where(TestPlan.suite == request.args.get("suite_id"))
-    if request.args.get("test_env"):
-        plans = plans.where(TestPlan.test_env == request.args.get("test_env"))
-    # 分页 limit offset
-    start = 0
-    per_page_nums = 10
-    plan_list = []
-    if request.args.get("pageSize"):
-        per_page_nums = int(request.args.get("pageSize"))
-    if request.args.get("current"):
-        start = per_page_nums * (int(request.args.get("current")) - 1)
-    total = plans.count()
-    plans = plans.limit(per_page_nums).offset(start)
-    logger.info(plans.count())
-    for plan in plans:
-        logger.info(plan)
-        plan_list.append(
-            model_to_dict(plan, exclude=[TestPlan.is_deleted], recurse=False)
-        )
-    logger.info(plan_list)
-    return JsonResponse.list_response(
-        list_data=plan_list,
-        total=total,
-        current_page=start + 1,
-        page_size=per_page_nums,
+    logger.info(TestPlan)
+    resp = flask_util.list_pagenation(
+        moudle=TestPlan,
+        data=request.args,
+        keys_to_extract=["id", "plan_name", "suite_id", "test_env"],
+        exclude=[TestPlan.is_deleted],
+        recurse=False
     )
+    return resp
+    # plans = TestPlan.select()
+    # if request.args.get("id"):
+    #     plans = plans.where(TestPlan.id == request.args.get("id"))
+    # if request.args.get("plan_name"):
+    #     plans = plans.where(TestPlan.plan_name == request.args.get("plan_name"))
+    # if request.args.get("suite_id"):
+    #     plans = plans.where(TestPlan.suite == request.args.get("suite_id"))
+    # if request.args.get("test_env"):
+    #     plans = plans.where(TestPlan.test_env == request.args.get("test_env"))
+    # # 分页 limit offset
+    # start = 0
+    # per_page_nums = 10
+    # plan_list = []
+    # if request.args.get("pageSize"):
+    #     per_page_nums = int(request.args.get("pageSize"))
+    # if request.args.get("current"):
+    #     start = per_page_nums * (int(request.args.get("current")) - 1)
+    # total = plans.count()
+    # plans = plans.limit(per_page_nums).offset(start)
+    # logger.info(plans.count())
+    # for plan in plans:
+    #     logger.info(plan)
+    #     plan_list.append(
+    #         model_to_dict(plan, exclude=[TestPlan.is_deleted], recurse=False)
+    #     )
+    # logger.info(plan_list)
+    # return JsonResponse.list_response(
+    #     list_data=plan_list,
+    #     total=total,
+    #     current_page=start + 1,
+    #     page_size=per_page_nums,
+    # )
+
+
+
 
 
 # 动态设置定时任务,开启还是关闭,该方法暂时废弃,实现起来需要自己额外开发很多功能

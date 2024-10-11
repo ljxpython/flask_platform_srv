@@ -30,13 +30,9 @@ class LocustFunc(BaseModel):
     # case_sence 其实就是py的文件名
     case_sence = CharField(max_length=100, null=False, verbose_name="case场景")
     path_desc = TextField(null=True, verbose_name="接口描述")
-    # case_func = CharField(
-    #     max_length=100, null=False, verbose_name="case函数名", unique=True
-    # )
     tags = CharField(max_length=100, null=True, verbose_name="标签")
 
-    # class Meta:
-    #     primary_key = CompositeKey("case_path", "case_func")
+
 
 
 class LocustSuite(BaseModel):
@@ -44,6 +40,7 @@ class LocustSuite(BaseModel):
     describe = TextField(verbose_name="套件描述", null=True)
     # 需要执行的case集
     case_ids = TextField(verbose_name="需要执行的case集",null=True)
+    case_sences = TextField(verbose_name="需要执行的case场景集")
 
 
 class LocustTestResult(BaseModel):
@@ -69,6 +66,8 @@ class LocustTestResult(BaseModel):
     test_type = CharField(max_length=100, null=True, verbose_name="测试类型")
     # 测试环境 线上线下
     test_env = CharField(max_length=100, null=True, verbose_name="测试环境")
+    # task_id
+    task_id = CharField(max_length=100, null=True, verbose_name="任务id")
 
 
 if __name__ == "__main__":

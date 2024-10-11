@@ -53,6 +53,8 @@ class Suite(BaseModel):
     describe = TextField(verbose_name="套件描述")
     # 需要执行的case集
     case_ids = TextField(verbose_name="需要执行的case集")
+    # case_sences,
+    case_sences = TextField(verbose_name="需要执行的case场景集")
     # 测试类型
     # test_type = CharField(max_length=100, null=False, verbose_name="测试类型")
     # 测试环境 线上线下

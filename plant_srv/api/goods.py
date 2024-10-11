@@ -11,7 +11,6 @@ from conf.config import settings
 from conf.constants import Config
 from plant_srv.model.goods import Goods
 from plant_srv.utils.error_handle import UserException
-from plant_srv.utils.flask_util import get_request_info
 from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
 
