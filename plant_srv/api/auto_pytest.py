@@ -913,8 +913,8 @@ def list_case_plant():
     logger.info(TestPlan)
     resp = flask_util.list_pagenation(
         moudle=TestPlan,
-        data=request.args,
-        keys_to_extract=["id", "plan_name", "suite_id", "test_env"],
+        # data=request.args,
+        # keys_to_extract=["id", "plan_name", "suite_id", "test_env"],
         exclude=[TestPlan.is_deleted],
         recurse=False
     )

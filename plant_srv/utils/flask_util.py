@@ -42,9 +42,17 @@ class FlaskUtil():
             m = m.where(getattr(moudle,key) == value)
         return m
 
-    def list_pagenation(self,moudle:BaseModel,data:dict,keys_to_extract:list,exclude:list,recurse:bool=True,**kwargs):
-        filter = self.extracted_data(data=data,keys_to_extract=keys_to_extract)
-        m = self.data_filter(moudle,filter=filter)
+    def list_pagenation(self,moudle:BaseModel,exclude:list,recurse:bool=True,**kwargs):
+        # filter = self.extracted_data(data=data,keys_to_extract=keys_to_extract)
+        # m = self.data_filter(moudle,filter=filter)
+        data = request.args
+        query = moudle.select()  # 创建基础查询
+        # 根据传入的过滤条件动态添加查询
+        for key, value in data.items():
+            if hasattr(moudle, key):  # 检查字段是否存在
+                query = query.where(getattr(moudle, key) == value)
+
+
         # 分页 limit offset
         start = 0
         per_page_nums = 10
@@ -52,8 +60,8 @@ class FlaskUtil():
             per_page_nums = int(data.get('pageSize'))
         if data.get('current'):
             start = per_page_nums * (int(data.get('current')) - 1)
-        total = m.count()
-        cases = m.limit(per_page_nums).offset(start)
+        total = query.count()
+        cases = query.limit(per_page_nums).offset(start)
         logger.info(cases.count())
         case_list = []
         # logger.info(cases.dicts())
