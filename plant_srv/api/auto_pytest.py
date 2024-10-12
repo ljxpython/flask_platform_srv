@@ -40,17 +40,16 @@ from plant_srv.utils.apscheduler_util.extensions import scheduler
 from plant_srv.utils.apscheduler_util.tasks import run_openapi_test_by_apschedule, task2
 from plant_srv.utils.celery_util.task.task_demo import add_together
 from plant_srv.utils.error_handle import UserException
+from plant_srv.utils.flask_util import flask_util
 from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
-from plant_srv.utils.flask_util import flask_util
 
-
-'''
+"""
 TODO:
     已经完成了分页查询的封装
     其实增删改查接口都是可以实现封装的,这个可以留到后面封装优化
 
-'''
+"""
 
 auto_pytest = Blueprint(
     "auto_pytest", __name__, url_prefix="/auto_pytest", template_folder=reports_dir
@@ -458,7 +457,9 @@ def create_suite():
     suite.case_ids = case_ids
     suite.save()
     return JsonResponse.success_response(
-        data={"suite": model_to_dict(suite, exclude=[Suite.is_deleted,Suite.case_ids])},
+        data={
+            "suite": model_to_dict(suite, exclude=[Suite.is_deleted, Suite.case_ids])
+        },
         msg="创建测试套件成功",
     )
 
@@ -499,7 +500,9 @@ def sync_suite_by_case_ids():
     logger.info(suite.case_ids)
     suite.save()
     return JsonResponse.success_response(
-        data={"suite": model_to_dict(suite, exclude=[Suite.is_deleted,Suite.case_ids])},
+        data={
+            "suite": model_to_dict(suite, exclude=[Suite.is_deleted, Suite.case_ids])
+        },
         msg="同步测试套件成功",
     )
 
@@ -535,7 +538,9 @@ def get_suite_list():
     total = suites.count()
     suites = suites.limit(per_page_nums).offset(start)
     for suite in suites:
-        suite_list.append(model_to_dict(suite, exclude=[Suite.is_deleted,Suite.case_ids]))
+        suite_list.append(
+            model_to_dict(suite, exclude=[Suite.is_deleted, Suite.case_ids])
+        )
     return JsonResponse.list_response(
         list_data=suite_list,
         total=total,
@@ -763,8 +768,7 @@ def run_case_result():
     )
 
 
-# 根据设置的时间运行测试,不管是webhook还是手动调用还是指定时间调用,都可以通过该接口来进行
-# 不同点在于,接口传参时test_type,test_env的不同
+# 根据设置的时间运行测试,不管是webhook还是手动调用还是指定时间调用,都可以通过该接口来进行,不同点在于,接口传参时test_type,test_env的不同
 @auto_pytest.route("/run_case_result_by_time", methods=["POST"])
 def run_case_result_by_time():
     data = request.get_json()
@@ -773,7 +777,7 @@ def run_case_result_by_time():
     test_env = data.get("test_env")
     if not run_time:
         run_time = datetime.now()
-    # 对时间进行转化
+    # 对时间进行转化https://docs.locust.io/en/stable/configuration.html#pick-user-classes-shapes-and-tasks-from-the-ui
     else:
         run_time = datetime.strptime(run_time, "%Y-%m-%d_%H-%M-%S")
     start_time = run_time.strftime("%Y-%m-%d_%H-%M-%S")
@@ -916,7 +920,7 @@ def list_case_plant():
         # data=request.args,
         # keys_to_extract=["id", "plan_name", "suite_id", "test_env"],
         exclude=[TestPlan.is_deleted],
-        recurse=False
+        recurse=False,
     )
     return resp
     # plans = TestPlan.select()
@@ -951,9 +955,6 @@ def list_case_plant():
     #     current_page=start + 1,
     #     page_size=per_page_nums,
     # )
-
-
-
 
 
 # 动态设置定时任务,开启还是关闭,该方法暂时废弃,实现起来需要自己额外开发很多功能
@@ -1026,13 +1027,6 @@ def job_test():
     )
     logger.info(job)
     return JsonResponse.success_response(data="定时任务开启成功")
-
-
-# 定时任务开启
-
-# 定时任务关闭
-
-# 定时任务更新
 
 
 # 动态设置定时任务,开启\关闭\更新

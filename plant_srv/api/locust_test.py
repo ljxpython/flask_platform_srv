@@ -5,7 +5,6 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 
 from apscheduler.triggers.cron import CronTrigger
-from celery.schedules import crontab
 from flask import (
     Blueprint,
     g,
@@ -26,18 +25,17 @@ from flask_jwt_extended import (
 from playhouse.shortcuts import model_to_dict
 
 from conf.config import settings
-from conf.constants import Config, reports_dir, template_dir
-from plant_srv.model.async_task import AsyncTask
-from plant_srv.model.locust_test import LocustFunc, LocustSuite, LocustTestResult
-from plant_srv.model.modelsbase import database
+from plant_srv.model.locust_test import (
+    LocustFunc,
+    LocustShape,
+    LocustSuite,
+    LocustTestResult,
+)
 from plant_srv.utils.anlaysis import get_classes_methods_and_module_doc
 from plant_srv.utils.apscheduler_util.extensions import scheduler
 from plant_srv.utils.apscheduler_util.tasks import run_openapi_test_by_apschedule, task2
 from plant_srv.utils.celery_util.check_task import task_result
-from plant_srv.utils.celery_util.task.openapi_task import run_openapi_test
-from plant_srv.utils.celery_util.task.task_demo import add_together
-from plant_srv.utils.error_handle import UserException
-from plant_srv.utils.file_operation import file_opreator
+from plant_srv.utils.flask_util import flask_util
 from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
 
@@ -67,7 +65,10 @@ def sync_locust_case():
         test_case_list = [
             x.name
             for x in moudle_dir.iterdir()
-            if x.is_file() and x.suffix == ".py" and "__init__" not in x.name
+            if x.is_file()
+            and x.suffix == ".py"
+            and "__init__" not in x.name
+            and x.name.startswith("test")
         ]
         logger.info(test_case_list)
         for test_case_name in test_case_list:
@@ -139,6 +140,16 @@ def get_locust_case():
         page_size=per_page_nums,
     )
 
+
+# 删除测试case
+@locust_test.route("/delete_locust_case", methods=["POST"])
+def delete_locust_case():
+    resp = flask_util.delete_api(
+        LocustFunc,
+    )
+    return resp
+
+
 # 创建locust测试套件
 @locust_test.route("/create_locust_suite", methods=["POST"])
 def create_locust_suite():
@@ -161,16 +172,18 @@ def create_locust_suite():
         data={"suite": model_to_dict(suite, exclude=[LocustSuite.is_deleted])},
         msg="创建测试套件成功",
     )
+
+
 # 根据case_sence同步测试套件
 @locust_test.route("/sync_locust_suite_by_case_ids", methods=["POST"])
 def sync_locust_suite():
     """
-    根据case_sence同步测试套件
-    请求例子:
-    {
-    "suite_name":"good-test-1",
-    "case_sences": ["test_good_add_del","test_update_good"]
-}
+        根据case_sence同步测试套件
+        请求例子:
+        {
+        "suite_name":"good-test-1",
+        "case_sences": ["test_good_add_del","test_update_good"]
+    }
     """
     data = request.get_json()
     id_ = data.get("id")
@@ -193,21 +206,25 @@ def sync_locust_suite():
         logger.info(case.case_path)
         case_ids.append(case.case_path)
     # 对case_ids进行去重
-    # logger.info(case_ids)
     case_ids = list(set(case_ids))
-    # logger.info(case_ids)
     # 根据suite_name查找测试套件
     suite = LocustSuite().get_or_none(id=id_)
     if not suite:
         return JsonResponse.error_response(data="测试套件不存在")
-    suite = LocustSuite.get(id = id_)
+    suite = LocustSuite.get(id=id_)
     suite.case_ids = " ".join(case_ids)
     logger.info(suite.case_ids)
     suite.save()
     return JsonResponse.success_response(
-        data={"suite": model_to_dict(suite, exclude=[LocustSuite.is_deleted])},
+        data={
+            "suite": model_to_dict(
+                suite, exclude=[LocustSuite.is_deleted, LocustSuite.case_ids]
+            )
+        },
         msg="同步测试套件成功",
     )
+
+
 # 查询locust测试套件
 @locust_test.route("/query_locust_suite", methods=["GET"])
 def query_locust_suite():
@@ -237,6 +254,7 @@ def query_locust_suite():
         page_size=per_page_nums,
     )
 
+
 # 删除测试套件
 @locust_test.route("/delete_locust_suite", methods=["POST"])
 def delete_locust_suite():
@@ -251,3 +269,32 @@ def delete_locust_suite():
     suite.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除测试套件成功")
 
+
+# 创建测试结果
+@locust_test.route("/create_locust_result", methods=["POST"])
+def create_locust_result():
+    resp = flask_util.create_model_instance(LocustTestResult)
+    return resp
+
+
+# 查询测试结果
+@locust_test.route("/query_locust_result", methods=["GET"])
+def query_locust_result():
+    resp = flask_util.list_pagenation(
+        LocustTestResult, exclude=[LocustTestResult.is_deleted], recurse=False
+    )
+    return resp
+
+
+# 同步测试结果
+@locust_test.route("/sync_locust_result", methods=["POST"])
+def sync_locust_result():
+    resp = flask_util.update_api(LocustTestResult)
+    return resp
+
+
+# 删除测试结果
+@locust_test.route("/delete_locust_result", methods=["POST"])
+def delete_locust_result():
+    resp = flask_util.delete_api(LocustTestResult)
+    return resp

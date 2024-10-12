@@ -9,6 +9,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+
 from conf.config import settings
 
 # dirname(path) 是返回path的父路径
@@ -55,20 +57,20 @@ ADMIN_PHONE = "13525468134"
 class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # flask-session配置 使用随机的字符串
-    SECRET_KEY = 'ljx-test-palnt-srv'
+    SECRET_KEY = "ljx-test-palnt-srv"
     # flask-session配置
     SESSION_TYPE = "redis"
     SESSION_USE_SIGNER = True  # 对cookie中session_id进行隐藏处理 加密混淆
     PERMANENT_SESSION_LIFETIME = 200  # session数据的有效期，单位秒
     # JWT配置秘钥
-    JWT_SECRET_KEY = 'ljx-test-palnt-srv'  # 加密
+    JWT_SECRET_KEY = "ljx-test-palnt-srv"  # 加密
     # JWT配置过期时间
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=6)  # 1小时
     UPLOAD_FOLDER = "./logs"
     ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg", "gif"}
     MAX_CONTENT_PATH = 16 * 1024 * 1024  # 限制上传文件大小为16M
     # APSchedule配置
-    SCHEDULER_TIMEZONE = 'Asia/Shanghai'  # 配置时区
+    SCHEDULER_TIMEZONE = "Asia/Shanghai"  # 配置时区
     SCHEDULER_API_ENABLED = True  # 添加API
     # celery 相关的配置存放到utils/celery文件内
     # CELERY = dict(
@@ -76,6 +78,7 @@ class Config:
     #     result_backend=f"redis://:{settings.redis.password}@{settings.redis.host}:{settings.redis.port}",
     #     task_ignore_result=False,
     # )
+    SCHEDULER_JOBSTORES = {"default": SQLAlchemyJobStore(url="sqlite:///jobs.sqlite")}
 
 
 # 开发环境

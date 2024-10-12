@@ -33,13 +33,28 @@ class LocustFunc(BaseModel):
     tags = CharField(max_length=100, null=True, verbose_name="标签")
 
 
+class LocustShape(BaseModel):
+    """
+    压测的负载形状
+    shape_name: 压测的shape名称
+    shape_desc: 压测的shape描述
+    shape_path: 压测的shape路径
+    e.g:
+    shape_name: hign_shape
+    shape_desc: 峰压测
+    shape_path: /data/locustfiles/shape/hign_shape.py
+    """
+
+    shape_name = CharField(max_length=100, verbose_name="压测的shape名称", unique=True)
+    shape_desc = TextField(verbose_name="压测的shape描述")
+    shape_path = CharField(max_length=100, verbose_name="压测的shape路径")
 
 
 class LocustSuite(BaseModel):
     suite_name = CharField(max_length=100, verbose_name="套件名称", unique=True)
     describe = TextField(verbose_name="套件描述", null=True)
     # 需要执行的case集
-    case_ids = TextField(verbose_name="需要执行的case集",null=True)
+    case_ids = TextField(verbose_name="需要执行的case集", null=True)
     case_sences = TextField(verbose_name="需要执行的case场景集")
 
 
@@ -68,14 +83,16 @@ class LocustTestResult(BaseModel):
     test_env = CharField(max_length=100, null=True, verbose_name="测试环境")
     # task_id
     task_id = CharField(max_length=100, null=True, verbose_name="任务id")
+    # shape_name
+    shape_name = CharField(max_length=100, null=True, verbose_name="shape_name")
 
 
 if __name__ == "__main__":
     # 删除表
     database.drop_tables(
-        [LocustTestResult, LocustSuite, LocustFunc],
+        [LocustTestResult, LocustSuite, LocustFunc, LocustShape],
     )
     # 创建表
     database.create_tables(
-        [LocustTestResult, LocustSuite, LocustFunc],
+        [LocustTestResult, LocustSuite, LocustFunc, LocustShape],
     )
