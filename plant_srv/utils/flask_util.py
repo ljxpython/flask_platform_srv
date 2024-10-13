@@ -131,6 +131,7 @@ class FlaskUtil():
         # 创建模型实例
         try:
             instance = model.create(**filtered_data)
+            g.id = instance.id
         except Exception as e:
             return JsonResponse.error_response(data={
                 "msg": f"创建{model} 失败",
