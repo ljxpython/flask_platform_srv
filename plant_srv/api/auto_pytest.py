@@ -114,7 +114,7 @@ def update_test_moudle():
         casemoudle.moudle_desc = moudle_desc
         casemoudle.save()
     else:
-        return JsonResponse.error_response(data="该模块不存在数据库中,请先同步测试模块")
+        return JsonResponse.error_response(error_message="该模块不存在数据库中,请先同步测试模块")
     return JsonResponse.success_response(
         data={"moudle_name": moudle_name, "moudle_desc": moudle_desc},
         msg="更新测试模块成功",
@@ -291,13 +291,13 @@ def create_project():
     project_owners = data.get("project_owners")
 
     if not project_name:
-        return JsonResponse.error_response(data="项目名称不能为空")
+        return JsonResponse.error_response(error_message="项目名称不能为空")
     if Project().get_or_none(project_name=project_name):
-        return JsonResponse.error_response(data="项目名称已经存在")
+        return JsonResponse.error_response(error_message="项目名称已经存在")
     if not project_desc:
-        return JsonResponse.error_response(data="项目描述不能为空")
+        return JsonResponse.error_response(error_message="项目描述不能为空")
     if not project_owners:
-        return JsonResponse.error_response(data="项目负责人不能为空")
+        return JsonResponse.error_response(error_message="项目负责人不能为空")
     project = Project.create(
         project_name=project_name,
         project_desc=project_desc,
@@ -318,10 +318,10 @@ def update_project():
     project_desc = data.get("project_desc")
     project_owners = data.get("project_owners")
     if not id_:
-        return JsonResponse.error_response(data="项目id不能为空")
+        return JsonResponse.error_response(error_message="项目id不能为空")
     project = Project().get_or_none(id=id_)
     if not project:
-        return JsonResponse.error_response(data="项目不存在")
+        return JsonResponse.error_response(error_message="项目不存在")
     project = Project().get(id=id_)
     if project_name:
         project.project_name = project_name
@@ -343,10 +343,10 @@ def delete_project():
     id_ = data.get("id")
     logger.info(id_)
     if not id_:
-        return JsonResponse.error_response(data="项目id不能为空")
+        return JsonResponse.error_response(error_message="项目id不能为空")
     project = Project().get_or_none(id=id_)
     if not project:
-        return JsonResponse.error_response(data="项目不存在")
+        return JsonResponse.error_response(error_message="项目不存在")
     else:
         logger.info(model_to_dict(project))
     project.delete_instance(permanently=True)
@@ -438,16 +438,16 @@ def create_suite():
     case_ids = data.get("case_ids")
 
     if not suite_name:
-        return JsonResponse.error_response(data="测试套件名称不能为空")
+        return JsonResponse.error_response(error_message="测试套件名称不能为空")
     if not project:
-        return JsonResponse.error_response(data="测试项目id不能为空")
+        return JsonResponse.error_response(error_message="测试项目id不能为空")
     # if not case_ids:
-    #     return JsonResponse.error_response(data="测试用例不能为空")
+    #     return JsonResponse.error_response(error_message="测试用例不能为空")
     project = Project().get_or_none(id=project)
     if not project:
-        return JsonResponse.error_response(data="测试项目不存在")
+        return JsonResponse.error_response(error_message="测试项目不存在")
     if Suite().get_or_none(suite_name=suite_name):
-        return JsonResponse.error_response(data="测试套件已经存在")
+        return JsonResponse.error_response(error_message="测试套件已经存在")
     logger.info(f"创建测试套件: {suite_name}")
     suite = Suite.create(
         suite_name=suite_name,
@@ -471,18 +471,18 @@ def sync_suite_by_case_ids():
     id_ = data.get("id")
     case_sences = data.get("case_sences")
     if not id_:
-        return JsonResponse.error_response(data="测试套件id不能为空")
+        return JsonResponse.error_response(error_message="测试套件id不能为空")
     # if not suite_name:
-    #     return JsonResponse.error_response(data="测试套件名称不能为空")
+    #     return JsonResponse.error_response(error_message="测试套件名称不能为空")
     if not case_sences:
-        return JsonResponse.error_response(data="测试场景不能为空")
+        return JsonResponse.error_response(error_message="测试场景不能为空")
     # 根据case_sences查找case集合
     cases = CaseFunc.select().where(CaseFunc.case_sence.in_(case_sences))
     # 如果为空,则抛出异常
     count = cases.count()
     case_ids = []
     if count == 0:
-        return JsonResponse.error_response(data="测试场景不存在")
+        return JsonResponse.error_response(error_message="测试场景不存在")
     for case in cases:
         logger.info(case.case_path)
         case_ids.append(case.case_path)
@@ -493,7 +493,7 @@ def sync_suite_by_case_ids():
     # 根据suite_name查找测试套件
     suite = Suite().get_or_none(id=id_)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     suite.case_sences = " ".join(case_sences)
     suite.save()
     suite.case_ids = " ".join(case_ids)
@@ -561,16 +561,16 @@ def update_suite():
     test_type = data.get("test_type")
     test_env = data.get("test_env")
     if not id_:
-        return JsonResponse.error_response(data="测试套件id不能为空")
+        return JsonResponse.error_response(error_message="测试套件id不能为空")
     # if not suite_name:
-    #     return JsonResponse.error_response(data="测试套件名称不能为空")
+    #     return JsonResponse.error_response(error_message="测试套件名称不能为空")
     suite = Suite().get_or_none(id=id_)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     if project:
         p = Project().get_or_none(id=project)
         if not p:
-            return JsonResponse.error_response(data="测试项目不存在")
+            return JsonResponse.error_response(error_message="测试项目不存在")
         suite.project = project
     if describe:
         suite.describe = describe
@@ -594,10 +594,10 @@ def delete_suite():
     id_ = data.get("id")
     suite_name = data.get("suite_name")
     if not id_:
-        return JsonResponse.error_response(data="测试套件id不能为空")
+        return JsonResponse.error_response(error_message="测试套件id不能为空")
     suite = Suite().get_or_none(id=id_)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     suite.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除测试套件成功")
 
@@ -617,13 +617,13 @@ def create_case_result():
     test_type = data.get("test_type")
     test_env = data.get("test_env")
     if not suite_id:
-        return JsonResponse.error_response(data="套件id不能为空")
+        return JsonResponse.error_response(error_message="套件id不能为空")
     # if not suite:
-    #     return JsonResponse.error_response(data="测试套件名称不能为空")
+    #     return JsonResponse.error_response(error_message="测试套件名称不能为空")
     # 如果测试套件不存在Suite表,报错
     suite = Suite().get_or_none(id=suite_id)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     case = TestResult.create(
         title=title,
         suite=suite,
@@ -701,10 +701,10 @@ def update_case_result():
     test_type = data.get("test_type")
     test_env = data.get("test_env")
     if not id_:
-        return JsonResponse.error_response(data="测试id不能为空")
+        return JsonResponse.error_response(error_message="测试id不能为空")
     case = TestResult.get_or_none(id=id_)
     if not case:
-        return JsonResponse.error_response(data="测试不存在")
+        return JsonResponse.error_response(error_message="测试不存在")
     if suite:
         case.suite = suite
     if status:
@@ -731,10 +731,10 @@ def delete_case_result():
     data = request.get_json()
     id_ = data.get("id")
     if not id_:
-        return JsonResponse.error_response(data="测试id不能为空")
+        return JsonResponse.error_response(error_message="测试id不能为空")
     case = TestResult.get_or_none(id=id_)
     if not case:
-        return JsonResponse.error_response(data="测试不存在")
+        return JsonResponse.error_response(error_message="测试不存在")
     case.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除测试成功")
 
@@ -783,9 +783,9 @@ def run_case_result_by_time():
     start_time = run_time.strftime("%Y-%m-%d_%H-%M-%S")
     suite = Suite.get_or_none(id=suite_id)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     if not test_env:
-        return JsonResponse.error_response(data="测试环境不能为空")
+        return JsonResponse.error_response(error_message="测试环境不能为空")
     task_id = str(uuid.uuid4())
     task = scheduler.add_job(
         func=create_run_case,
@@ -820,24 +820,24 @@ def create_case_plant():
     # is_open = data.get("is_open", "off")
     # logger.info(f"plan_name:{plan_name},{suite_id},{cron},{test_env},{is_open}")
     # if not plan_name:
-    #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    #     return JsonResponse.error_response(error_message="测试计划名称不能为空")
     # if not suite_id:
-    #     return JsonResponse.error_response(data="测试套件id名称不能为空")
+    #     return JsonResponse.error_response(error_message="测试套件id名称不能为空")
     # suite = Suite().get_or_none(id=suite_id)
     # if not suite:
-    #     return JsonResponse.error_response(data="测试套件不存在")
+    #     return JsonResponse.error_response(error_message="测试套件不存在")
     # if not cron:
-    #     return JsonResponse.error_response(data="定时任务不能为空")
+    #     return JsonResponse.error_response(error_message="定时任务不能为空")
     # if not test_env:
-    #     return JsonResponse.error_response(data="测试环境不能为空")
+    #     return JsonResponse.error_response(error_message="测试环境不能为空")
     # if not Suite.get_or_none(id=suite_id):
-    #     return JsonResponse.error_response(data="测试套件不存在")
+    #     return JsonResponse.error_response(error_message="测试套件不存在")
     # plan_ = TestPlan.get_or_none(plan_name=plan_name)
     # if plan_:
-    #     return JsonResponse.error_response(data="测试计划名称已存在")
+    #     return JsonResponse.error_response(error_message="测试计划名称已存在")
     # # suite = Suite.get_or_none(suite_name=suite_name)
     # # if not suite:
-    # #     return JsonResponse.error_response(data="测试套件不存在")
+    # #     return JsonResponse.error_response(error_message="测试套件不存在")
     # if test_env not in ["dev", "test", "prod", "online", "boe"]:
     #     return JsonResponse.error_response(
     #         data="测试环境不正确,not in [dev,test,prod,online,boe]"
@@ -861,13 +861,13 @@ def del_case_plant():
     # data = request.get_json()
     # id_ = data.get("id")
     # if not id_:
-    #     return JsonResponse.error_response(data="测试计划id不能为空")
+    #     return JsonResponse.error_response(error_message="测试计划id不能为空")
     # # plan_name = data.get("plan_name")
     # # if not plan_name:
-    # #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    # #     return JsonResponse.error_response(error_message="测试计划名称不能为空")
     # plan_name = TestPlan.get_or_none(id=id_)
     # if not plan_name:
-    #     return JsonResponse.error_response(data="测试计划不存在")
+    #     return JsonResponse.error_response(error_message="测试计划不存在")
     # plan_name.delete_instance(permanently=True)
     # return JsonResponse.success_response(msg="删除测试计划成功")
     resp = flask_util.delete_api(TestPlan)
@@ -887,22 +887,22 @@ def update_case_plant():
     # cron = data.get("cron")
     # test_env = data.get("test_env")
     # if not id_:
-    #     return JsonResponse.error_response(data="测试计划id不能为空")
+    #     return JsonResponse.error_response(error_message="测试计划id不能为空")
     # # if not plan_name:
-    # #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    # #     return JsonResponse.error_response(error_message="测试计划名称不能为空")
     # plan = TestPlan.get_or_none(id=id_)
     # if not plan:
-    #     return JsonResponse.error_response(data="测试计划不存在")
+    #     return JsonResponse.error_response(error_message="测试计划不存在")
     # # plan = TestPlan.get(plan_name=plan_name)
     # if suite:
     #     suite = Suite.get_or_none(id=suite)
     #     if not suite:
-    #         return JsonResponse.error_response(data="测试套件不存在")
+    #         return JsonResponse.error_response(error_message="测试套件不存在")
     #     plan.suite = suite
     #     plan.save()
     # if test_env:
     #     if test_env not in ["dev", "test", "prod", "online", "boe"]:
-    #         return JsonResponse.error_response(data="测试环境不正确")
+    #         return JsonResponse.error_response(error_message="测试环境不正确")
     #     plan.test_env = test_env
     #     plan.save()
     # if cron:
@@ -967,19 +967,19 @@ def set_case_result_by_celery():
     is_open = data.get("is_open")
     cron = data.get("cron")
     if not plan_name:
-        return JsonResponse.error_response(data="测试计划名称不能为空")
+        return JsonResponse.error_response(error_message="测试计划名称不能为空")
     plan = TestPlan.get_or_none(plan_name=plan_name)
     if not plan:
-        return JsonResponse.error_response(data="测试计划不存在")
+        return JsonResponse.error_response(error_message="测试计划不存在")
     if not is_open:
-        return JsonResponse.error_response(data="开启或关闭不能为空")
+        return JsonResponse.error_response(error_message="开启或关闭不能为空")
     if is_open not in ["on", "off"]:
-        return JsonResponse.error_response(data="开启或关闭参数不正确")
+        return JsonResponse.error_response(error_message="开启或关闭参数不正确")
     plan = TestPlan.get(plan_name=plan_name)
     if not cron:
         cron = plan.cron
     if plan.is_open == is_open:
-        return JsonResponse.error_response(data="当前状态和设置状态一致")
+        return JsonResponse.error_response(error_message="当前状态和设置状态一致")
     if is_open == "on":
         # 开启定时任务配置
         plan.is_open = is_open
@@ -1071,21 +1071,21 @@ def set_case_result_by_cron():
     run_once = data.get("run_once", False)
     update_corn = data.get("update_corn", False)
     if not id_:
-        return JsonResponse.error_response(data="id不能为空")
+        return JsonResponse.error_response(error_message="id不能为空")
     # if not plan_name:
-    #     return JsonResponse.error_response(data="测试计划名称不能为空")
+    #     return JsonResponse.error_response(error_message="测试计划名称不能为空")
     plan = TestPlan.get_or_none(id=id_)
     if not plan:
-        return JsonResponse.error_response(data="测试计划不存在")
+        return JsonResponse.error_response(error_message="测试计划不存在")
     if not is_open:
-        return JsonResponse.error_response(data="开启或关闭不能为空")
+        return JsonResponse.error_response(error_message="开启或关闭不能为空")
     if is_open not in ["on", "off"]:
-        return JsonResponse.error_response(data="开启或关闭参数不正确")
+        return JsonResponse.error_response(error_message="开启或关闭参数不正确")
     plan = TestPlan.get(id=id_)
     if not cron:
         cron = plan.cron
     if plan.is_open == is_open:
-        return JsonResponse.error_response(data="当前状态和设置状态一致")
+        return JsonResponse.error_response(error_message="当前状态和设置状态一致")
     # 如果不存在taskid,随机生成一个task_id,写入到数据库中
     if not plan.plan_id:
         plan_id = str(uuid.uuid4())
@@ -1174,7 +1174,7 @@ def create_run_case(
     # 创建一个测试计划等待执行
     suite = Suite().get_or_none(id=suite)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     suite_name = suite.suite_name
     project_name = suite.project.project_name
     title = f"{project_name}-{suite_name}-{test_type}-{test_env}-{start_time}"
@@ -1185,7 +1185,7 @@ def create_run_case(
     # 创建一个测试计划等待执行
     suite = Suite().get_or_none(id=suite)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     suite_name = suite.suite_name
     project_name = suite.project.project_name
     title = f"{project_name}-{suite_name}-{test_type}-{test_env}-{start_time}"

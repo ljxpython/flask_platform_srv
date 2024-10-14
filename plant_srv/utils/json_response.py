@@ -81,6 +81,8 @@ from http import HTTPStatus
 
 from flask import Flask, jsonify, make_response, request
 
+from plant_srv.utils.enum_code import ErrorCode,ErrorShowType
+
 
 class JsonResponse:
     """A class to represent a JSON response."""
@@ -149,10 +151,13 @@ class JsonResponse:
 
     # 一个常用的失败的返回
     @classmethod
-    def error_response(cls, headers: dict | list = None, data: dict|list|str = None,code: int = None, **kwargs):
+    def error_response(cls, headers: dict | list = None, data: dict|list|str = None,code: int = None,error_message:str|dict=None,show_type:ErrorShowType=ErrorShowType.ERROR_MESSAGE,error_code:ErrorCode=ErrorCode.ERROR, **kwargs):
         data = {
             "data": data,
             "success": False,
+            "errorCode": error_code.value,
+            "errorMessage": error_message,
+            "showType":show_type.value
         }
         return cls.response(data=data, headers=headers, code=code,**kwargs)
 

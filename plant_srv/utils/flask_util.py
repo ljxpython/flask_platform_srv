@@ -88,10 +88,10 @@ class FlaskUtil():
         data = request.get_json()
         id_ = data.get("id")
         if not id_:
-            return JsonResponse.error_response(data=f"{moudle} id不能为空")
+            return JsonResponse.error_response(error_message=f"{moudle} id不能为空")
         m = moudle.get_or_none(id=id_)
         if not m:
-            return JsonResponse.error_response(data=f"{moudle} id:{id_}不存在")
+            return JsonResponse.error_response(error_message=f"{moudle} id:{id_}不存在")
         m.delete_instance(permanently=True)
         return JsonResponse.success_response(msg=f"删除{moudle} id:{id_}成功")
 
@@ -100,15 +100,15 @@ class FlaskUtil():
         data = request.get_json()
         id_ = data.get("id")
         if not id_:
-            return JsonResponse.error_response(data=f"{moudle} id不能为空")
+            return JsonResponse.error_response(error_message=f"{moudle} id不能为空")
         m = moudle.get_or_none(id=id_)
         if not m:
-            return JsonResponse.error_response(data=f"{moudle} id:{id_}不存在")
+            return JsonResponse.error_response(error_message=f"{moudle} id:{id_}不存在")
         del data["id"]
         try:
             self.update_model(instance=m,updates=data)
         except Exception as e:
-            return JsonResponse.error_response(data={
+            return JsonResponse.error_response(error_message={
                 "msg":f"更新{moudle} id:{id_}失败",
                 "error":str(e)
             })
@@ -133,7 +133,7 @@ class FlaskUtil():
             instance = model.create(**filtered_data)
             g.id = instance.id
         except Exception as e:
-            return JsonResponse.error_response(data={
+            return JsonResponse.error_response(error_message={
                 "msg": f"创建{model} 失败",
                 "error": str(e)
             })

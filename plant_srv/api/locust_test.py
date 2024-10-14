@@ -165,9 +165,9 @@ def create_locust_suite():
     case_ids = data.get("case_ids")
     logger.info(f"suite_name:{suite_name},project_name:{describe}")
     if not suite_name:
-        return JsonResponse.error_response(data="suite_name不能为空")
+        return JsonResponse.error_response(error_message="suite_name不能为空")
     if LocustSuite().get_or_none(suite_name=suite_name):
-        return JsonResponse.error_response(data="suite_name已经存在")
+        return JsonResponse.error_response(error_message="suite_name已经存在")
     suite = LocustSuite.create(
         suite_name=suite_name, describe=describe, case_ids=case_ids
     )
@@ -192,16 +192,16 @@ def sync_locust_suite():
     id_ = data.get("id")
     case_sences:list = data.get("case_sences")
     if not id_:
-        return JsonResponse.error_response(data="测试套件id不能为空")
+        return JsonResponse.error_response(error_message="测试套件id不能为空")
     if not case_sences:
-        return JsonResponse.error_response(data="测试场景不能为空")
+        return JsonResponse.error_response(error_message="测试场景不能为空")
     # 根据case_sences查找case集合
     cases = LocustFunc.select().where(LocustFunc.case_sence.in_(case_sences))
     # 如果为空,则抛出异常
     count = cases.count()
     case_ids = []
     if count == 0:
-        return JsonResponse.error_response(data="测试场景不存在")
+        return JsonResponse.error_response(error_message="测试场景不存在")
     for case in cases:
         logger.info(case.case_path)
         case_ids.append(case.case_path)
@@ -210,7 +210,7 @@ def sync_locust_suite():
     # 根据suite_name查找测试套件
     suite = LocustSuite().get_or_none(id=id_)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     suite = LocustSuite.get(id=id_)
     suite.case_ids = " ".join(case_ids)
     suite.case_sences = " ".join(case_sences)
@@ -262,10 +262,10 @@ def delete_locust_suite():
     data = request.get_json()
     id_ = data.get("id")
     if not id_:
-        return JsonResponse.error_response(data="测试套件id不能为空")
+        return JsonResponse.error_response(error_message="测试套件id不能为空")
     suite = LocustSuite().get_or_none(id=id_)
     if not suite:
-        return JsonResponse.error_response(data="测试套件不存在")
+        return JsonResponse.error_response(error_message="测试套件不存在")
     suite = LocustSuite().get(id=id_)
     suite.delete_instance(permanently=True)
     return JsonResponse.success_response(msg="删除测试套件成功")
@@ -312,7 +312,7 @@ def run_locust_test():
             # 强制终止
             stop_locust_process()
         else:
-            return JsonResponse.error_response(data="当前有locust进程在运行,请先终止")
+            return JsonResponse.error_response(error_message="当前有locust进程在运行,请先终止")
     # 创建一个压测result,后续存储相关测试进度
     resp = flask_util.create_model_instance(LocustTestResult)
     logger.info(resp.response)
@@ -322,7 +322,7 @@ def run_locust_test():
         str_list = [byte.decode('utf-8') for byte in byte_list]
         # 然后连接它们
         result = ''.join(str_list)
-        return JsonResponse.error_response(data=f"创建测试结果失败:{result}")
+        return JsonResponse.error_response(error_message=f"创建测试结果失败:{result}")
     # 获取创建的id
     id_ = g.id
     logger.info(f"创建测试结果成功,id为:{id_}")
@@ -353,7 +353,7 @@ def force_stop_locust_test():
     resp = stop_locust_process()
     if resp:
         return JsonResponse.success_response(msg="强制停止locust测试进程成功")
-    return JsonResponse.error_response(data="当前无正在运行的locust进程")
+    return JsonResponse.error_response(error_message="当前无正在运行的locust进程")
 
 
 # 软停止locust测试进程
@@ -361,7 +361,7 @@ def force_stop_locust_test():
 def stop_locust_test():
     result = LocustTestResult().get_or_none(status=2)
     if not result:
-        return JsonResponse.error_response(data="当前无正在运行的locust进程")
+        return JsonResponse.error_response(error_message="当前无正在运行的locust进程")
     stop_locust_process()
     result.status = 1
     result.result = "Done"
