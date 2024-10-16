@@ -99,26 +99,28 @@ def update_test_moudle():
     """
     给测试模块添加相应的描述
     """
-    data = request.get_json()
-    id_ = data.get("id")
-    moudle_name = data.get("moudle_name")  # 测试模块名称
-    moudle_desc = data.get("moudle_desc")  # 测试模块描述
-    logger.info(f"moudle_name:{moudle_name},moudle_desc:{moudle_desc}")
-    # 查询数据库中是否存在该Moudle,如果存在,则更新,如果不存在,则返回错误
-    c = CaseMoudle().get_or_none(id=id_)
-    logger.info(c)
-    if c:  # 如果存在,则更新
-        logger.info(f"该模块存在,进行更新操作")
-        casemoudle = CaseMoudle().get(id=id_)
-        casemoudle.moudle_name = moudle_name
-        casemoudle.moudle_desc = moudle_desc
-        casemoudle.save()
-    else:
-        return JsonResponse.error_response(error_message="该模块不存在数据库中,请先同步测试模块")
-    return JsonResponse.success_response(
-        data={"moudle_name": moudle_name, "moudle_desc": moudle_desc},
-        msg="更新测试模块成功",
-    )
+    resp = flask_util.update_api(CaseMoudle)
+    return resp
+    # data = request.get_json()
+    # id_ = data.get("id")
+    # moudle_name = data.get("moudle")  # 测试模块名称
+    # moudle_desc = data.get("desc")  # 测试模块描述
+    # logger.info(f"moudle_name:{moudle_name},moudle_desc:{moudle_desc}")
+    # # 查询数据库中是否存在该Moudle,如果存在,则更新,如果不存在,则返回错误
+    # c = CaseMoudle().get_or_none(id=id_)
+    # logger.info(c)
+    # if c:  # 如果存在,则更新
+    #     logger.info(f"该模块存在,进行更新操作")
+    #     casemoudle = CaseMoudle().get(id=id_)
+    #     casemoudle.moudle_name = moudle_name
+    #     casemoudle.moudle_desc = moudle_desc
+    #     casemoudle.save()
+    # else:
+    #     return JsonResponse.error_response(error_message="该模块不存在数据库中,请先同步测试模块")
+    # return JsonResponse.success_response(
+    #     data={"moudle_name": moudle_name, "moudle_desc": moudle_desc},
+    #     msg="更新测试模块成功",
+    # )
 
 
 # 查询测试模块
