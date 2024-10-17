@@ -254,7 +254,7 @@ def get_case():
     if data.get("case_sence"):
         def extract_case_sence(case_sence):
             # 检查是否包含中文字符或中文逗号
-            if re.search(r'[\u4e00-\u9fff]', case_sence) or '，' in case_sence:
+            if re.search(r'[\u4e00-\u9fff]', case_sence) or '，' in case_sence or ' ' in case_sence:
                 # 使用中文逗号分割字符串，并去掉每个元素的前后空白字符
                 elements = [elem.strip() for elem in re.split(r'，|,', case_sence)]
                 return elements
