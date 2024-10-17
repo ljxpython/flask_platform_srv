@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from subprocess import PIPE, Popen
+import re
 
 from apscheduler.triggers.cron import CronTrigger
 from flask import (
@@ -246,12 +247,22 @@ def get_case():
     if data.get("id"):
         logger.info(data.get("id"))
         cases = cases.where(CaseFunc.id == data.get("id"))
-    if data.get("moudle"):
-        cases = cases.where(CaseFunc.moudle.in_(data.get("moudle")))
+    if data.get("casemoudle"):
+        cases = cases.where(CaseFunc.casemoudle.in_(data.get("casemoudle")))
     if data.get("case_func"):
         cases = cases.where(CaseFunc.case_func == data.get("case_func"))
     if data.get("case_sence"):
-        cases = cases.where(CaseFunc.case_sence.in_(data.get("case_sence")))
+        def extract_case_sence(case_sence):
+            # 检查是否包含中文字符或中文逗号
+            if re.search(r'[\u4e00-\u9fff]', case_sence) or '，' in case_sence:
+                # 使用中文逗号分割字符串，并去掉每个元素的前后空白字符
+                elements = [elem.strip() for elem in re.split(r'，|,', case_sence)]
+                return elements
+            return [case_sence]
+        # 根据 case_sence中的中文或者应逗号对其分割,之后元素存放到列表中
+        case_sence_list = extract_case_sence(data.get("case_sence"))
+        logger.info(f"case_sence_list: {case_sence_list}")
+        cases = cases.where(CaseFunc.case_sence.in_(case_sence_list))
     if data.get("tags"):
         cases = cases.where(CaseFunc.tags.in_(data.get("tags")))
     # 分页 limit offset
