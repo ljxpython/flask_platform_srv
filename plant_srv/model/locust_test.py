@@ -101,6 +101,8 @@ class LocustTestResult(BaseModel):
     tags = CharField(max_length=100, null=True, verbose_name="标签")
     exclude_tags = CharField(max_length=100, null=True, verbose_name="排除标签")
     run_time = CharField(max_length=100, null=True, verbose_name="运行时间")
+    # 测试case执行人
+    test_user = CharField(max_length=100, null=True, verbose_name="测试case执行人")
 
 
 

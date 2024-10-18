@@ -252,17 +252,17 @@ def get_case():
     if data.get("case_func"):
         cases = cases.where(CaseFunc.case_func == data.get("case_func"))
     if data.get("case_sence"):
-        def extract_case_sence(case_sence):
-            # 检查是否包含中文字符或中文逗号
-            if re.search(r'[\u4e00-\u9fff]', case_sence) or '，' in case_sence or ' ' in case_sence:
-                # 使用中文逗号分割字符串，并去掉每个元素的前后空白字符
-                elements = [elem.strip() for elem in re.split(r'，|,', case_sence)]
-                return elements
-            return [case_sence]
-        # 根据 case_sence中的中文或者应逗号对其分割,之后元素存放到列表中
-        case_sence_list = extract_case_sence(data.get("case_sence"))
-        logger.info(f"case_sence_list: {case_sence_list}")
-        cases = cases.where(CaseFunc.case_sence.in_(case_sence_list))
+        # def extract_case_sence(case_sence):
+        #     # 检查是否包含中文字符或中文逗号
+        #     if re.search(r'[\u4e00-\u9fff]', case_sence) or '，' in case_sence or ' ' in case_sence:
+        #         # 使用中文逗号分割字符串，并去掉每个元素的前后空白字符
+        #         elements = [elem.strip() for elem in re.split(r'，|,', case_sence)]
+        #         return elements
+        #     return [case_sence]
+        # # 根据 case_sence中的中文或者应逗号对其分割,之后元素存放到列表中
+        # case_sence_list = extract_case_sence(data.get("case_sence"))
+        # logger.info(f"case_sence_list: {case_sence_list}")
+        cases = cases.where(CaseFunc.case_sence.in_(data.get("case_sence")))
     if data.get("tags"):
         cases = cases.where(CaseFunc.tags.in_(data.get("tags")))
     # 分页 limit offset
@@ -293,6 +293,18 @@ def get_case():
         total=total,
         page_size=per_page_nums,
     )
+
+# 获取所有测试场景
+@auto_pytest.route("/get_case_sence", methods=["POST"])
+def get_case_sence():
+    cases = CaseFunc.select()
+    case_sence_list = []
+    for case in cases:
+        case_sence_list.append(case.case_sence)
+    # 去重
+    case_sence_list = list(set(case_sence_list))
+    return JsonResponse.success_response(data={"case_sence_list": case_sence_list}, msg="获取所有测试场景成功")
+
 
 
 # 创建测试项目
@@ -446,7 +458,7 @@ def delete_tag():
 def create_suite():
     data = request.get_json()
     suite_name = data.get("suite_name")
-    project = data.get("project_id")
+    project = data.get("project")
     describe = data.get("describe")
     case_ids = data.get("case_ids")
 
@@ -485,8 +497,6 @@ def sync_suite_by_case_ids():
     case_sences = data.get("case_sences")
     if not id_:
         return JsonResponse.error_response(error_message="测试套件id不能为空")
-    # if not suite_name:
-    #     return JsonResponse.error_response(error_message="测试套件名称不能为空")
     if not case_sences:
         return JsonResponse.error_response(error_message="测试场景不能为空")
     # 根据case_sences查找case集合
@@ -500,9 +510,7 @@ def sync_suite_by_case_ids():
         logger.info(case.case_path)
         case_ids.append(case.case_path)
     # 对case_ids进行去重
-    # logger.info(case_ids)
     case_ids = list(set(case_ids))
-    # logger.info(case_ids)
     # 根据suite_name查找测试套件
     suite = Suite().get_or_none(id=id_)
     if not suite:
@@ -565,54 +573,58 @@ def get_suite_list():
 # 跟新测试套件信息
 @auto_pytest.route("/update_suite", methods=["POST"])
 def update_suite():
-    data = request.get_json()
-    id_ = data.get("id")
-    suite_name = data.get("suite_name")
-    project = data.get("project_id")
-    describe = data.get("describe")
-    case_ids = data.get("case_ids")
-    test_type = data.get("test_type")
-    test_env = data.get("test_env")
-    if not id_:
-        return JsonResponse.error_response(error_message="测试套件id不能为空")
-    # if not suite_name:
-    #     return JsonResponse.error_response(error_message="测试套件名称不能为空")
-    suite = Suite().get_or_none(id=id_)
-    if not suite:
-        return JsonResponse.error_response(error_message="测试套件不存在")
-    if project:
-        p = Project().get_or_none(id=project)
-        if not p:
-            return JsonResponse.error_response(error_message="测试项目不存在")
-        suite.project = project
-    if describe:
-        suite.describe = describe
-    if case_ids:
-        suite.case_ids = case_ids
-    if test_type:
-        suite.test_type = test_type
-    if test_env:
-        suite.test_env = test_env
-    suite.save()
-    return JsonResponse.success_response(
-        data={"suite": model_to_dict(suite, exclude=[Suite.is_deleted])},
-        msg="更新测试套件成功",
-    )
+    resp = flask_util.update_api(Suite)
+    return resp
+    # data = request.get_json()
+    # id_ = data.get("id")
+    # suite_name = data.get("suite_name")
+    # project = data.get("project_id")
+    # describe = data.get("describe")
+    # case_ids = data.get("case_ids")
+    # test_type = data.get("test_type")
+    # test_env = data.get("test_env")
+    # if not id_:
+    #     return JsonResponse.error_response(error_message="测试套件id不能为空")
+    # # if not suite_name:
+    # #     return JsonResponse.error_response(error_message="测试套件名称不能为空")
+    # suite = Suite().get_or_none(id=id_)
+    # if not suite:
+    #     return JsonResponse.error_response(error_message="测试套件不存在")
+    # if project:
+    #     p = Project().get_or_none(id=project)
+    #     if not p:
+    #         return JsonResponse.error_response(error_message="测试项目不存在")
+    #     suite.project = project
+    # if describe:
+    #     suite.describe = describe
+    # if case_ids:
+    #     suite.case_ids = case_ids
+    # if test_type:
+    #     suite.test_type = test_type
+    # if test_env:
+    #     suite.test_env = test_env
+    # suite.save()
+    # return JsonResponse.success_response(
+    #     data={"suite": model_to_dict(suite, exclude=[Suite.is_deleted])},
+    #     msg="更新测试套件成功",
+    # )
 
 
 # 删除测试套件
 @auto_pytest.route("/delete_suite", methods=["POST"])
 def delete_suite():
-    data = request.get_json()
-    id_ = data.get("id")
-    suite_name = data.get("suite_name")
-    if not id_:
-        return JsonResponse.error_response(error_message="测试套件id不能为空")
-    suite = Suite().get_or_none(id=id_)
-    if not suite:
-        return JsonResponse.error_response(error_message="测试套件不存在")
-    suite.delete_instance(permanently=True)
-    return JsonResponse.success_response(msg="删除测试套件成功")
+    resp = flask_util.delete_api(Suite)
+    return resp
+    # data = request.get_json()
+    # id_ = data.get("id")
+    # suite_name = data.get("suite_name")
+    # if not id_:
+    #     return JsonResponse.error_response(error_message="测试套件id不能为空")
+    # suite = Suite().get_or_none(id=id_)
+    # if not suite:
+    #     return JsonResponse.error_response(error_message="测试套件不存在")
+    # suite.delete_instance(permanently=True)
+    # return JsonResponse.success_response(msg="删除测试套件成功")
 
 
 # 根据suite_name创建测试

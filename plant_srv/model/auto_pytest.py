@@ -109,6 +109,8 @@ class TestResult(BaseModel):
     task_id = CharField(max_length=100, null=True, verbose_name="任务id")
     # 如果有测试计划,则会有testplan_id字段
     plan_id = IntegerField(null=True, verbose_name="测试计划id")
+    # 测试case执行人
+    test_user = CharField(max_length=255, null=True, verbose_name="测试case执行人")
 
 
 class CaseTag(BaseModel):
