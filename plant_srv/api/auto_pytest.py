@@ -1094,7 +1094,7 @@ def set_case_result_by_cron():
     id_ = data.get("id")
     plan_name = data.get("plan_name")
     is_open = data.get("is_open")
-    trigger = data.get("trigger", "cron")
+    # trigger = data.get("trigger", "cron")
     cron = data.get("cron")
     minute = data.get("minute", "*")
     hour = data.get("hour", "*")
@@ -1116,8 +1116,8 @@ def set_case_result_by_cron():
     if is_open not in ["on", "off"]:
         return JsonResponse.error_response(error_message="开启或关闭参数不正确")
     plan = TestPlan.get(id=id_)
-    if not cron:
-        cron = plan.cron
+    # if not cron:
+    #     cron = plan.cron
     if plan.is_open == is_open:
         return JsonResponse.error_response(error_message="当前状态和设置状态一致")
     # 如果不存在taskid,随机生成一个task_id,写入到数据库中
@@ -1128,7 +1128,10 @@ def set_case_result_by_cron():
     if is_open == "on":
         # 开启定时任务配置
         plan.is_open = is_open
-        plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
+        if not cron:
+            plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
+        else:
+            plan.cron = cron
         plan.save()
         # # 开启定时任务,及是否直接触发一次
         task = scheduler.add_job(

@@ -452,6 +452,7 @@ def locust_test_(id_:int,):
     headless = get_attribute(locust_result, "headless")
     tags = get_attribute(locust_result, "tags")
     exclude_tags = get_attribute(locust_result, "exclude_tags")
+    test_user = get_attribute(locust_result, "test_user")
     case_ids = locust_result.locustsuite.case_ids
     report_dir = settings.locust_stress.report_dir
     command = f"export ENV_FOR_DYNACONF={test_env} && {settings.locust_stress.python_env} main.py --title {title} --case_ids '{case_ids}' --report_dir {report_dir}  --port {port} --id {id_} "
