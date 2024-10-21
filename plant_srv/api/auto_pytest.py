@@ -1,9 +1,9 @@
 import os
+import re
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from subprocess import PIPE, Popen
-import re
 
 from apscheduler.triggers.cron import CronTrigger
 from flask import (
@@ -294,6 +294,7 @@ def get_case():
         page_size=per_page_nums,
     )
 
+
 # 获取所有测试场景
 @auto_pytest.route("/get_case_sence", methods=["POST"])
 def get_case_sence():
@@ -303,8 +304,9 @@ def get_case_sence():
         case_sence_list.append(case.case_sence)
     # 去重
     case_sence_list = list(set(case_sence_list))
-    return JsonResponse.success_response(data={"case_sence_list": case_sence_list}, msg="获取所有测试场景成功")
-
+    return JsonResponse.success_response(
+        data={"case_sence_list": case_sence_list}, msg="获取所有测试场景成功"
+    )
 
 
 # 创建测试项目
@@ -669,47 +671,51 @@ def create_case_result():
 # 根据id,suite_name,status,result,test_type,test_env获取测试
 @auto_pytest.route("/get_case_result", methods=["GET"])
 def get_case_result():
-    id_ = request.args.get("id")
-    cases = TestResult.select()
-    suite = request.args.get("suite_id")
-    status = request.args.get("status")
-    result = request.args.get("result")
-    test_type = request.args.get("test_type")
-    test_env = request.args.get("test_env")
-    if suite:
-        cases = cases.where(TestResult.suite == suite)
-    if status:
-        cases = cases.where(TestResult.status == status)
-    if result:
-        cases = cases.where(TestResult.result == result)
-    if id_:
-        cases = cases.where(TestResult.id == id_)
-    if test_type:
-        cases = cases.where(TestResult.test_type == test_type)
-    if test_env:
-        cases = cases.where(TestResult.test_env == test_env)
-    case_list = []
-    # 分页 limit offset
-    start = 0
-    per_page_nums = 10
-    if request.args.get("pageSize"):
-        per_page_nums = int(request.args.get("pageSize"))
-    if request.args.get("current"):
-        start = per_page_nums * (int(request.args.get("current")) - 1)
-    total = cases.count()
-    cases = cases.limit(per_page_nums).offset(start)
-    for case in cases:
-        case_list.append(
-            model_to_dict(
-                case, exclude=[TestResult.is_deleted], backrefs=False, recurse=False
-            )
-        )
-    return JsonResponse.list_response(
-        list_data=case_list,
-        total=total,
-        current_page=start + 1,
-        page_size=per_page_nums,
+    resp = flask_util.list_pagenation(
+        TestResult, exclude=[TestResult.is_deleted], backrefs=False, recurse=False
     )
+    return resp
+    # id_ = request.args.get("id")
+    # cases = TestResult.select()
+    # suite = request.args.get("suite_id")
+    # status = request.args.get("status")
+    # result = request.args.get("result")
+    # test_type = request.args.get("test_type")
+    # test_env = request.args.get("test_env")
+    # if suite:
+    #     cases = cases.where(TestResult.suite == suite)
+    # if status:
+    #     cases = cases.where(TestResult.status == status)
+    # if result:
+    #     cases = cases.where(TestResult.result == result)
+    # if id_:
+    #     cases = cases.where(TestResult.id == id_)
+    # if test_type:
+    #     cases = cases.where(TestResult.test_type == test_type)
+    # if test_env:
+    #     cases = cases.where(TestResult.test_env == test_env)
+    # case_list = []
+    # # 分页 limit offset
+    # start = 0
+    # per_page_nums = 10
+    # if request.args.get("pageSize"):
+    #     per_page_nums = int(request.args.get("pageSize"))
+    # if request.args.get("current"):
+    #     start = per_page_nums * (int(request.args.get("current")) - 1)
+    # total = cases.count()
+    # cases = cases.limit(per_page_nums).offset(start)
+    # for case in cases:
+    #     case_list.append(
+    #         model_to_dict(
+    #             case, exclude=[TestResult.is_deleted], backrefs=False, recurse=False
+    #         )
+    #     )
+    # return JsonResponse.list_response(
+    #     list_data=case_list,
+    #     total=total,
+    #     current_page=start + 1,
+    #     page_size=per_page_nums,
+    # )
 
 
 # 更新测试
@@ -797,16 +803,17 @@ def run_case_result():
 @auto_pytest.route("/run_case_result_by_time", methods=["POST"])
 def run_case_result_by_time():
     data = request.get_json()
-    suite_id = data.get("suite_id")
+    suite = data.get("suite")
     run_time = data.get("run_time")
     test_env = data.get("test_env")
+    test_user = data.get("test_user")
     if not run_time:
         run_time = datetime.now()
     # 对时间进行转化https://docs.locust.io/en/stable/configuration.html#pick-user-classes-shapes-and-tasks-from-the-ui
     else:
         run_time = datetime.strptime(run_time, "%Y-%m-%d_%H-%M-%S")
     start_time = run_time.strftime("%Y-%m-%d_%H-%M-%S")
-    suite = Suite.get_or_none(id=suite_id)
+    suite = Suite.get_or_none(id=suite)
     if not suite:
         return JsonResponse.error_response(error_message="测试套件不存在")
     if not test_env:
@@ -824,6 +831,7 @@ def run_case_result_by_time():
             "test_env": test_env,
             "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
             "task_id": task_id,
+            "test_user": test_user,
         },
     )
     return JsonResponse.success_response(
@@ -1095,6 +1103,7 @@ def set_case_result_by_cron():
     day_of_week = data.get("day_of_week", "0-6")
     run_once = data.get("run_once", False)
     update_corn = data.get("update_corn", False)
+    test_user = data.get("test_user", "test")
     if not id_:
         return JsonResponse.error_response(error_message="id不能为空")
     # if not plan_name:
@@ -1136,6 +1145,7 @@ def set_case_result_by_cron():
                 "test_env": plan.test_env,
                 "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
                 "plan_id": plan.id,
+                "test_user": test_user,
             },
         )
         if run_once:
@@ -1183,6 +1193,7 @@ def webhook():
                 "test_env": plan.test_env,
                 "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
                 "task_id": task_id,
+                "test_user": "webhook",
             },
             id=str(uuid.uuid4()),
             replace_existing=True,
@@ -1194,7 +1205,13 @@ def webhook():
 
 # 需要封装执行自动化测试及把结果写入到case中的一个方法,或者,通过pytest框架的main.py来完成
 def create_run_case(
-    suite, test_type, test_env, start_time, task_id: str = None, plan_id=None
+    suite,
+    test_type,
+    test_env,
+    start_time,
+    task_id: str = None,
+    plan_id=None,
+    test_user=None,
 ):
     # 创建一个测试计划等待执行
     suite = Suite().get_or_none(id=suite)
@@ -1216,7 +1233,11 @@ def create_run_case(
     title = f"{project_name}-{suite_name}-{test_type}-{test_env}-{start_time}"
     logger.info(title)
     case = TestResult.create(
-        title=title, suite=suite, test_type=test_type, test_env=test_env
+        title=title,
+        suite=suite,
+        test_type=test_type,
+        test_env=test_env,
+        test_user=test_user,
     )
     # 返回创建的id
     if not task_id:
