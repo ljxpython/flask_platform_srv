@@ -462,7 +462,7 @@ def create_suite():
     suite_name = data.get("suite_name")
     project = data.get("project")
     describe = data.get("describe")
-    case_ids = data.get("case_ids")
+    case_sences = data.get("case_sences")
 
     if not suite_name:
         return JsonResponse.error_response(error_message="测试套件名称不能为空")
@@ -476,13 +476,22 @@ def create_suite():
     if Suite().get_or_none(suite_name=suite_name):
         return JsonResponse.error_response(error_message="测试套件已经存在")
     logger.info(f"创建测试套件: {suite_name}")
+    if not case_sences:
+        return JsonResponse.error_response(error_message="测试场景不能为空")
+    # 根据case_sences查找case集合
+    cases = CaseFunc.select().where(CaseFunc.case_sence.in_(case_sences))
+    # 如果为空,则抛出异常
+    count = cases.count()
+    if count == 0:
+        return JsonResponse.error_response(error_message="测试场景不存在,请重新确认")
     suite = Suite.create(
         suite_name=suite_name,
         project=project,
         describe=describe,
     )
-    suite.case_ids = case_ids
+    # suite.case_ids = case_ids
     suite.save()
+    sync_suite_sences_to_caseids(id_=suite.id, case_sences=case_sences)
     return JsonResponse.success_response(
         data={
             "suite": model_to_dict(suite, exclude=[Suite.is_deleted, Suite.case_ids])
@@ -497,10 +506,53 @@ def sync_suite_by_case_ids():
     data = request.get_json()
     id_ = data.get("id")
     case_sences = data.get("case_sences")
+    suite_name = data.get("suite_name")
+    project = data.get("project")
+    describe = data.get("describe")
+
     if not id_:
         return JsonResponse.error_response(error_message="测试套件id不能为空")
     if not case_sences:
         return JsonResponse.error_response(error_message="测试场景不能为空")
+    suite = sync_suite_sences_to_caseids(id_=id_, case_sences=case_sences)
+    if suite_name:
+        suite.suite_name = suite_name
+    if project:
+        suite.project = project
+    if describe:
+        suite.describe = describe
+    suite.save()
+
+    # # 根据case_sences查找case集合
+    # cases = CaseFunc.select().where(CaseFunc.case_sence.in_(case_sences))
+    # # 如果为空,则抛出异常
+    # count = cases.count()
+    # case_ids = []
+    # if count == 0:
+    #     return JsonResponse.error_response(error_message="测试场景不存在")
+    # for case in cases:
+    #     logger.info(case.case_path)
+    #     case_ids.append(case.case_path)
+    # # 对case_ids进行去重
+    # case_ids = list(set(case_ids))
+    # # 根据suite_name查找测试套件
+    # suite = Suite().get_or_none(id=id_)
+    # if not suite:
+    #     return JsonResponse.error_response(error_message="测试套件不存在")
+    # suite.case_sences = " ".join(case_sences)
+    # suite.save()
+    # suite.case_ids = " ".join(case_ids)
+    # logger.info(suite.case_ids)
+    # suite.save()
+    return JsonResponse.success_response(
+        data={
+            "suite": model_to_dict(suite, exclude=[Suite.is_deleted, Suite.case_ids])
+        },
+        msg="同步测试套件成功",
+    )
+
+
+def sync_suite_sences_to_caseids(id_, case_sences):
     # 根据case_sences查找case集合
     cases = CaseFunc.select().where(CaseFunc.case_sence.in_(case_sences))
     # 如果为空,则抛出异常
@@ -522,12 +574,7 @@ def sync_suite_by_case_ids():
     suite.case_ids = " ".join(case_ids)
     logger.info(suite.case_ids)
     suite.save()
-    return JsonResponse.success_response(
-        data={
-            "suite": model_to_dict(suite, exclude=[Suite.is_deleted, Suite.case_ids])
-        },
-        msg="同步测试套件成功",
-    )
+    return suite
 
 
 # 根据指定条件查找测试套件,条件有:project_name, suite_name, test_type, test_env
