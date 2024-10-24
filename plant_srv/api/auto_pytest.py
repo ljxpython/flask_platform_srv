@@ -500,6 +500,18 @@ def create_suite():
     )
 
 
+# 获取case_sence,存放在列表中
+@auto_pytest.route("/get_case_sences", methods=["GET"])
+def get_case_sences():
+    cases = CaseFunc.select(CaseFunc.case_sence).distinct()
+    case_sences = []
+    for case in cases:
+        case_sences.append(case.case_sence)
+    return JsonResponse.success_response(
+        data={"case_sences": case_sences}, msg="获取测试场景成功"
+    )
+
+
 # 根据case_sence同步测试套件中的case_ids
 @auto_pytest.route("/sync_suite_by_case_ids", methods=["POST"])
 def sync_suite_by_case_ids():
