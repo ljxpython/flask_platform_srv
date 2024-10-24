@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -461,7 +462,7 @@ def create_suite():
     data = request.get_json()
     suite_name = data.get("suite_name")
     project = data.get("project")
-    describe = data.get("describe")
+    describe = data.get("describe",'无')
     case_sences = data.get("case_sences")
 
     if not suite_name:
@@ -500,7 +501,7 @@ def create_suite():
     )
 
 
-# 获取case_sence,存放在列表中
+# 获取case_sence,存放在列表中,接口重复了,这个暂废弃
 @auto_pytest.route("/get_case_sences", methods=["GET"])
 def get_case_sences():
     cases = CaseFunc.select(CaseFunc.case_sence).distinct()
@@ -581,7 +582,8 @@ def sync_suite_sences_to_caseids(id_, case_sences):
     suite = Suite().get_or_none(id=id_)
     if not suite:
         return JsonResponse.error_response(error_message="测试套件不存在")
-    suite.case_sences = " ".join(case_sences)
+    # suite.case_sences = " ".join(case_sences)
+    suite.case_sences = json.dumps(case_sences)
     suite.save()
     suite.case_ids = " ".join(case_ids)
     logger.info(suite.case_ids)

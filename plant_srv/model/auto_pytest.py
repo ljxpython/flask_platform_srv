@@ -66,8 +66,8 @@ class Suite(BaseModel):
 
 # 测试计划,配置定期任务
 class TestPlan(BaseModel):
-    # 测试套件为外键
-    suite = ForeignKeyField(Suite, verbose_name="suite_name")
+    # 测试套件为外键,采用级联删除,这样相关Suite删除时,会把相关测试计划一并删除
+    suite = ForeignKeyField(Suite, verbose_name="suite_name",on_delete="CASCADE",backref="test_plan")
     # 测试计划名称
     plan_name = CharField(
         max_length=100, null=False, verbose_name="测试计划名称", unique=True
