@@ -20,6 +20,7 @@ from http import HTTPStatus
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
 
+from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
 
 ERROR_HTTP_CODE = HTTPStatus.EXPECTATION_FAILED
@@ -36,17 +37,23 @@ def init_error_exception(app):
     @app.errorhandler(HTTPException)
     def handler_http_exception(exception):
         logger.info(exception)
-        return jsonify({"code": -1, "msg": exception.description}), exception.code
+        # return jsonify({"code": -1, "msg": exception.description}), exception.code
+        return JsonResponse.error_response(error_message=exception.description)
 
     @app.errorhandler(Exception)
     def server_exception(exception):
         logger.info(exception)
-        return jsonify({"code": -1, "msg": f"内部错误:{exception}"}), ERROR_HTTP_CODE
+        # return jsonify({"code": -1, "msg": f"内部错误:{exception}"}), ERROR_HTTP_CODE
+        return JsonResponse.error_response(error_message=f"内部错误:{exception}")
 
     @app.errorhandler(UserException)
     def user_exception(exception):
         logger.info(exception)
-        return (
-            jsonify({"code": exception.code, "msg": exception.msg}),
-            exception.http_code,
+
+        # return (
+        #     jsonify({"code": exception.code, "msg": exception.msg}),
+        #     exception.http_code,
+        # )
+        return JsonResponse.error_response(
+            error_message=exception.msg, code=exception.code
         )

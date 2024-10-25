@@ -1,6 +1,6 @@
+import json
 import os
 import re
-import json
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -462,7 +462,7 @@ def create_suite():
     data = request.get_json()
     suite_name = data.get("suite_name")
     project = data.get("project")
-    describe = data.get("describe",'无')
+    describe = data.get("describe", "无")
     case_sences = data.get("case_sences")
 
     if not suite_name:
@@ -864,17 +864,18 @@ def run_case_result():
 @auto_pytest.route("/run_case_result_by_time", methods=["POST"])
 def run_case_result_by_time():
     data = request.get_json()
-    suite = data.get("suite")
+    id_ = data.get("id")
     run_time = data.get("run_time")
     test_env = data.get("test_env")
-    test_user = data.get("test_user")
+    test_user = data.get("test_user", "test")
     if not run_time:
         run_time = datetime.now()
     # 对时间进行转化https://docs.locust.io/en/stable/configuration.html#pick-user-classes-shapes-and-tasks-from-the-ui
     else:
-        run_time = datetime.strptime(run_time, "%Y-%m-%d_%H-%M-%S")
-    start_time = run_time.strftime("%Y-%m-%d_%H-%M-%S")
-    suite = Suite.get_or_none(id=suite)
+        run_time = parse_datetime(date_string=run_time)
+        # run_time = datetime.strptime(run_time, "%Y-%m-%d %H:%M:%S")
+        # run_time = datetime.strptime(run_time, "%Y-%m-%d_%H-%M-%S")
+    suite = Suite.get_or_none(id=id_)
     if not suite:
         return JsonResponse.error_response(error_message="测试套件不存在")
     if not test_env:
@@ -885,12 +886,12 @@ def run_case_result_by_time():
         id=f"run_case_{task_id}",
         name=f"run_case_{task_id}",
         trigger="date",
-        run_date=datetime.now() + timedelta(seconds=5),
+        run_date=run_time + timedelta(seconds=5),
         kwargs={
             "suite": suite.id,
             "test_type": "manual",
             "test_env": test_env,
-            "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
+            "start_time": run_time.strftime("%Y-%m-%d_%H:%M:%S"),
             "task_id": task_id,
             "test_user": test_user,
         },
@@ -901,10 +902,24 @@ def run_case_result_by_time():
     )
 
 
+def parse_datetime(date_string):
+    formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d_%H-%M-%S"]  # 格式 1  # 格式 2
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_string, fmt)
+        except ValueError:
+            continue  # 尝试下一个格式
+
+    return JsonResponse.error_response(error_message="无法解析日期时间字符串")
+
+
 # 创建测试计划
 @auto_pytest.route("/create_case_plant", methods=["POST"])
 def create_case_plant():
     resp = flask_util.create_model_instance(TestPlan)
+    data = request.get_json()
+    # 根据测试计划名称，查询创建成功的ID
     return resp
     # data = request.get_json()
     # plan_name = data.get("plan_name")
@@ -1179,13 +1194,29 @@ def set_case_result_by_cron():
     plan = TestPlan.get(id=id_)
     # if not cron:
     #     cron = plan.cron
-    if plan.is_open == is_open:
-        return JsonResponse.error_response(error_message="当前状态和设置状态一致")
+    # if plan.is_open == is_open:
+    #     return JsonResponse.error_response(error_message="当前状态和设置状态一致")
     # 如果不存在taskid,随机生成一个task_id,写入到数据库中
     if not plan.plan_id:
         plan_id = str(uuid.uuid4())
         plan.plan_id = plan_id
         plan.save()
+    if update_corn:
+        # 更新定时任务配置
+        plan.is_open = is_open
+        if not cron:
+            plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
+        else:
+            plan.cron = cron
+        plan.save()
+        # 更新定时任务
+        scheduler.reschedule_job(
+            id=plan.plan_id,
+            trigger=CronTrigger.from_crontab(f"{plan.cron}"),
+        )
+        if run_once:
+            scheduler.run_job(id=plan.plan_id)
+        return JsonResponse.success_response(data="定时任务更新成功", msg=plan.plan_id)
     if is_open == "on":
         # 开启定时任务配置
         plan.is_open = is_open
@@ -1207,7 +1238,7 @@ def set_case_result_by_cron():
                 "suite": plan.suite.id,
                 "test_type": "cron",
                 "test_env": plan.test_env,
-                "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
+                # "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
                 "plan_id": plan.id,
                 "test_user": test_user,
             },
@@ -1216,25 +1247,31 @@ def set_case_result_by_cron():
             scheduler.run_job(id=plan.plan_id)
         logger.info(task)
         return JsonResponse.success_response(data="定时任务开启成功", msg=plan.plan_id)
-    elif update_corn:
-        # 更新定时任务配置
-        plan.is_open = is_open
-        plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
-        plan.save()
-        # 更新定时任务
-        scheduler.reschedule_job(
-            id=plan.plan_id,
-            trigger=CronTrigger.from_crontab(
-                f"{minute} {hour} {day} {month} {day_of_week}"
-            ),
-        )
+    # elif update_corn:
+    #     # 更新定时任务配置
+    #     plan.is_open = is_open
+    #     plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
+    #     plan.save()
+    #     # 更新定时任务
+    #     scheduler.reschedule_job(
+    #         id=plan.plan_id,
+    #         trigger=CronTrigger.from_crontab(
+    #             f"{minute} {hour} {day} {month} {day_of_week}"
+    #         ),
+    #     )
     else:
         # 关闭定时任务配置
         plan.is_open = is_open
         plan.save()
         # 关闭定时任务
-        scheduler.remove_job(id=plan.plan_id)
-    return JsonResponse.success_response(data="设置成功")
+        try:
+            scheduler.remove_job(id=plan.plan_id)
+        except Exception as e:
+            logger.error(e)
+            pass
+        return JsonResponse.success_response(
+            data="设置成功,定时任务已关闭", msg=plan.plan_id
+        )
 
 
 # webhook触发执行测试
@@ -1272,11 +1309,13 @@ def create_run_case(
     suite,
     test_type,
     test_env,
-    start_time,
+    start_time=None,
     task_id: str = None,
     plan_id=None,
     test_user=None,
 ):
+    if not start_time:
+        start_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     # 创建一个测试计划等待执行
     suite = Suite().get_or_none(id=suite)
     if not suite:
