@@ -111,37 +111,39 @@ def get_locust_case():
     """
     根据条件查找locustcase
     """
-    cases = LocustFunc().select()
-    if request.args.get("moudle"):
-        cases = cases.where(LocustFunc.moudle == request.args.get("moudle"))
-    if request.args.get("case_sence"):
-        cases = cases.where(LocustFunc.case_sence == request.args.get("case_sence"))
-    if request.args.get("tags"):
-        cases = cases.where(LocustFunc.tags == request.args.get("tags"))
-    # 分页 limit offset
-    start = 0
-    per_page_nums = 10
-    if request.args.get("pageSize"):
-        per_page_nums = int(request.args.get("pageSize"))
-    if request.args.get("current"):
-        start = per_page_nums * (int(request.args.get("current")) - 1)
-    total = cases.count()
-    cases = cases.limit(per_page_nums).offset(start)
-    logger.info(cases.count())
-    case_list = []
-    # logger.info(cases.dicts())
-    for case in cases:
-        logger.info(case)
-        logger.info(model_to_dict(case))
-        case_list.append(
-            model_to_dict(case, exclude=[LocustFunc.add_time, LocustFunc.case_path])
-        )
-    return JsonResponse.list_response(
-        list_data=case_list,
-        current_page=start + 1,
-        total=total,
-        page_size=per_page_nums,
-    )
+    resp = flask_util.list_pagenation(moudle=LocustFunc,exclude=[LocustFunc.add_time, LocustFunc.case_path,LocustFunc.is_deleted],recurse=True)
+    return resp
+    # cases = LocustFunc().select()
+    # if request.args.get("moudle"):
+    #     cases = cases.where(LocustFunc.moudle == request.args.get("moudle"))
+    # if request.args.get("case_sence"):
+    #     cases = cases.where(LocustFunc.case_sence == request.args.get("case_sence"))
+    # if request.args.get("tags"):
+    #     cases = cases.where(LocustFunc.tags == request.args.get("tags"))
+    # # 分页 limit offset
+    # start = 0
+    # per_page_nums = 10
+    # if request.args.get("pageSize"):
+    #     per_page_nums = int(request.args.get("pageSize"))
+    # if request.args.get("current"):
+    #     start = per_page_nums * (int(request.args.get("current")) - 1)
+    # total = cases.count()
+    # cases = cases.limit(per_page_nums).offset(start)
+    # logger.info(cases.count())
+    # case_list = []
+    # # logger.info(cases.dicts())
+    # for case in cases:
+    #     logger.info(case)
+    #     logger.info(model_to_dict(case))
+    #     case_list.append(
+    #         model_to_dict(case, exclude=[LocustFunc.add_time, LocustFunc.case_path])
+    #     )
+    # return JsonResponse.list_response(
+    #     list_data=case_list,
+    #     current_page=start + 1,
+    #     total=total,
+    #     page_size=per_page_nums,
+    # )
 
 
 # 删除测试case
