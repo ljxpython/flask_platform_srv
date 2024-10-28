@@ -1,21 +1,23 @@
 # from flasgger import LazyJSONEncoder, LazyString, Swagger
+import logging
+import os
+
 from flask import Flask
+from flask_apscheduler import APScheduler
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_session import Session
-from flask_apscheduler import APScheduler
-import os
-import logging
 
 from conf.config import settings
 from conf.constants import config_map
 from plant_srv.api import creat_blueprint
 from plant_srv.api.user import admin
+from plant_srv.utils.apscheduler_util.extensions import scheduler
+from plant_srv.utils.celery_util.create_celery_app import celery_init_app
 from plant_srv.utils.error_handle import init_error_exception
 from plant_srv.utils.log_moudle import logger
 from plant_srv.utils.middlewares import register_middlewares
-from plant_srv.utils.celery_util.create_celery_app import celery_init_app
-from plant_srv.utils.apscheduler_util.extensions import scheduler
+
 
 def create_app():
     def is_debug_mode():
@@ -38,7 +40,8 @@ def create_app():
         app, resources={r"": {"origins": "*"}}, supports_credentials=True
     )  # 允许跨域请求
     # 线上环境开启异常
-    if settings.node == "online":
+
+    if settings.env == "online":
         init_error_exception(app)
     register_middlewares(app)
     celery_init_app(app)

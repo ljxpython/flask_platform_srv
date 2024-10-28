@@ -1,9 +1,10 @@
+import json
 import os
+import signal
+import subprocess
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-import subprocess
-import signal
 from subprocess import PIPE, Popen
 
 from apscheduler.triggers.cron import CronTrigger
@@ -33,6 +34,7 @@ from plant_srv.model.locust_test import (
     LocustSuite,
     LocustTestResult,
 )
+from plant_srv.model.modelsbase import database
 from plant_srv.utils.anlaysis import get_classes_methods_and_module_doc
 from plant_srv.utils.apscheduler_util.extensions import scheduler
 from plant_srv.utils.apscheduler_util.tasks import run_openapi_test_by_apschedule, task2
@@ -40,7 +42,6 @@ from plant_srv.utils.celery_util.check_task import task_result
 from plant_srv.utils.flask_util import flask_util
 from plant_srv.utils.json_response import JsonResponse
 from plant_srv.utils.log_moudle import logger
-from subprocess import Popen
 
 locust_test = Blueprint("locust_test", __name__, url_prefix="/locust_test")
 
@@ -111,7 +112,11 @@ def get_locust_case():
     """
     根据条件查找locustcase
     """
-    resp = flask_util.list_pagenation(moudle=LocustFunc,exclude=[LocustFunc.add_time, LocustFunc.case_path,LocustFunc.is_deleted],recurse=True)
+    resp = flask_util.list_pagenation(
+        moudle=LocustFunc,
+        exclude=[LocustFunc.add_time, LocustFunc.case_path, LocustFunc.is_deleted],
+        recurse=True,
+    )
     return resp
     # cases = LocustFunc().select()
     # if request.args.get("moudle"):
@@ -165,18 +170,31 @@ def create_locust_suite():
     suite_name = data.get("suite_name")
     describe = data.get("describe")
     case_ids = data.get("case_ids")
-    logger.info(f"suite_name:{suite_name},project_name:{describe}")
+    case_sences: list = data.get("case_sences")
     if not suite_name:
         return JsonResponse.error_response(error_message="suite_name不能为空")
     if LocustSuite().get_or_none(suite_name=suite_name):
         return JsonResponse.error_response(error_message="suite_name已经存在")
-    suite = LocustSuite.create(
-        suite_name=suite_name, describe=describe, case_ids=case_ids
-    )
-    return JsonResponse.success_response(
-        data={"suite": model_to_dict(suite, exclude=[LocustSuite.is_deleted])},
-        msg="创建测试套件成功",
-    )
+    with database.atomic():
+        suite1 = LocustSuite.create(
+            suite_name=suite_name, describe=describe, case_ids=case_ids
+        )
+        id_ = suite1.id
+        suite = sync_locust_suite_sence(id_=id_, case_sences=case_sences)
+        try:
+            return JsonResponse.success_response(
+                data={"suite": model_to_dict(suite, exclude=[LocustSuite.is_deleted])},
+                msg="创建测试套件成功",
+            )
+        except Exception as e:
+            # 事务回滚
+            suite1.delete_instance(permanently=True)
+            logger.error(e)
+    # return JsonResponse.success_response(
+    #     data={"suite": model_to_dict(suite, exclude=[LocustSuite.is_deleted])},
+    #     msg="创建测试套件成功",
+    # )
+    return JsonResponse.error_response(error_message="创建失败")
 
 
 # 根据case_sence同步测试套件
@@ -192,10 +210,45 @@ def sync_locust_suite():
     """
     data = request.get_json()
     id_ = data.get("id")
-    case_sences:list = data.get("case_sences")
+    case_sences: list = data.get("case_sences")
+    suite_name = data.get("suite_name")
+    describe = data.get("describe")
+    case_ids = data.get("case_ids")
+    with database.atomic():
+        suite = sync_locust_suite_sence(id_=id_, case_sences=case_sences)
+        if suite_name:
+            suite.suite_name = suite_name
+        if describe:
+            suite.describe = describe
+        if case_ids:
+            suite.case_ids = case_ids
+        suite.save()
+        return JsonResponse.success_response(
+            data={
+                "suite": model_to_dict(
+                    suite, exclude=[LocustSuite.is_deleted, LocustSuite.case_ids]
+                )
+            },
+            msg="同步测试套件成功",
+        )
+
+
+def sync_locust_suite_sence(id_, case_sences):
+    """
+        根据case_sence同步测试套件
+        请求例子:
+        {
+        "suite_name":"good-test-1",
+        "case_sences": ["test_good_add_del","test_update_good"]
+    }
+    """
+    # data = request.get_json()
+    # id_ = data.get("id")
+    # case_sences: list = data.get("case_sences")
+    logger.info(f"id_:{id_},case_sences:{case_sences}")
     if not id_:
         return JsonResponse.error_response(error_message="测试套件id不能为空")
-    if not case_sences:
+    if case_sences is None:
         return JsonResponse.error_response(error_message="测试场景不能为空")
     # 根据case_sences查找case集合
     cases = LocustFunc.select().where(LocustFunc.case_sence.in_(case_sences))
@@ -215,17 +268,11 @@ def sync_locust_suite():
         return JsonResponse.error_response(error_message="测试套件不存在")
     suite = LocustSuite.get(id=id_)
     suite.case_ids = " ".join(case_ids)
-    suite.case_sences = " ".join(case_sences)
+    # suite.case_sences = " ".join(case_sences)
+    suite.case_sences = json.dumps(case_sences)
     logger.info(suite.case_ids)
     suite.save()
-    return JsonResponse.success_response(
-        data={
-            "suite": model_to_dict(
-                suite, exclude=[LocustSuite.is_deleted, LocustSuite.case_ids]
-            )
-        },
-        msg="同步测试套件成功",
-    )
+    return suite
 
 
 # 查询locust测试套件
@@ -249,7 +296,9 @@ def query_locust_suite():
     total = suites.count()
     suites = suites.limit(per_page_nums).offset(start)
     for suite in suites:
-        suite_list.append(model_to_dict(suite, exclude=[LocustSuite.is_deleted,LocustSuite.case_ids]))
+        suite_list.append(
+            model_to_dict(suite, exclude=[LocustSuite.is_deleted, LocustSuite.case_ids])
+        )
     return JsonResponse.list_response(
         list_data=suite_list,
         total=total,
@@ -302,11 +351,12 @@ def delete_locust_result():
     resp = flask_util.delete_api(LocustTestResult)
     return resp
 
+
 # 运行压测
 @locust_test.route("/run_locust_test", methods=["POST"])
 def run_locust_test():
     data = request.get_json()
-    force = data.get("force",False)
+    force = data.get("force", False)
     # 执行测试前,先check是否有locustfiles的进程,如果有则需要根据传入是否强制终止上一次压测的参数,先杀掉进程
     locust_pids = get_locust_pids()
     if locust_pids:
@@ -314,26 +364,30 @@ def run_locust_test():
             # 强制终止
             stop_locust_process()
         else:
-            return JsonResponse.error_response(error_message="当前有locust进程在运行,请先终止")
+            return JsonResponse.error_response(
+                error_message="当前有locust进程在运行,请先终止"
+            )
     # 创建一个压测result,后续存储相关测试进度
     resp = flask_util.create_model_instance(LocustTestResult)
     logger.info(resp.response)
     if not g.get("id"):
         byte_list = resp.response
         # 将字节串转换为字符串
-        str_list = [byte.decode('utf-8') for byte in byte_list]
+        str_list = [byte.decode("utf-8") for byte in byte_list]
         # 然后连接它们
-        result = ''.join(str_list)
+        result = "".join(str_list)
         return JsonResponse.error_response(error_message=f"创建测试结果失败:{result}")
     # 获取创建的id
     id_ = g.id
     logger.info(f"创建测试结果成功,id为:{id_}")
-    task_id = data.get("task_id",None)
+    task_id = data.get("task_id", None)
     if not task_id:
         task_id = str(uuid.uuid4())
     locust_task = LocustTestResult().get(id=id_)
     locust_task.task_id = task_id
-    locust_task.status = 2 # 2代表运行中 TODO 这些状态应该由util里面enum模块管理的,时间紧急,待后续优化
+    locust_task.status = (
+        2  # 2代表运行中 TODO 这些状态应该由util里面enum模块管理的,时间紧急,待后续优化
+    )
     locust_task.result = "Running"
     locust_task.save()
     task = scheduler.add_job(
@@ -368,7 +422,10 @@ def stop_locust_test():
     result.status = 1
     result.result = "Done"
     result.save()
-    return JsonResponse.success_response(msg="停止locust测试进程成功",data={"id": result.id})
+    return JsonResponse.success_response(
+        msg="停止locust测试进程成功", data={"id": result.id}
+    )
+
 
 # 获取当前正在进行运行的locust测试详情
 @locust_test.route("/get_locust_test_detail", methods=["GET"])
@@ -379,13 +436,18 @@ def get_locust_test_detail():
         return JsonResponse.success_response(data="当前无正在运行的locust进程")
     result = LocustTestResult().get_or_none(status=2)
     if not result:
-        return JsonResponse.success_response(data="locust进程出错,请结束locust进程后重新运行")
-    return JsonResponse.success_response(data={
-        "id": result.id,
-        "title": result.title,
-        "port": result.port,
-        "url": f"{settings.nginx.host}:{result.port}"
-    })
+        return JsonResponse.success_response(
+            data="locust进程出错,请结束locust进程后重新运行"
+        )
+    return JsonResponse.success_response(
+        data={
+            "id": result.id,
+            "title": result.title,
+            "port": result.port,
+            "url": f"{settings.nginx.host}:{result.port}",
+        }
+    )
+
 
 # 查看当前是否还有运行中的locust进程存在
 @locust_test.route("/check_locust_process", methods=["GET"])
@@ -395,7 +457,6 @@ def check_locust_process():
     if not locust_pids:
         return JsonResponse.success_response(data="当前无正在运行的locust进程")
     return JsonResponse.success_response(data="当前有正在运行的locust进程")
-
 
 
 def stop_locust_process():
@@ -436,11 +497,15 @@ def get_locust_pids():
         logger.error(f"Failed to find Locust processes: {e}")
         return []
 
-def locust_test_(id_:int,):
+
+def locust_test_(
+    id_: int,
+):
     # 获取属性的函数
     def get_attribute(instance, attr_name):
         # logger.info(f"获取属性{getattr(instance, attr_name)}")
         return getattr(instance, attr_name, None)
+
     # 根据id获取locust相关配置信息
     locust_result = LocustTestResult.get_or_none(id=id_)
     logger.info(model_to_dict(locust_result))
