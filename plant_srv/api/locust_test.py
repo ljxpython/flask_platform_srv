@@ -355,18 +355,54 @@ def delete_locust_result():
 # 运行压测
 @locust_test.route("/run_locust_test", methods=["POST"])
 def run_locust_test():
+    '''
+    这部分的测试逻辑:
+    1. check locustsuite 是否存在
+    2. check Titile 是否唯一且存在
+    3. check locust进程 是否存在
+       - 如果存在,则判断是否强制终止,如果强制终止,则杀掉进程,重新运行
+       - 如果不强制终止,则返回错误信息
+
+    '''
     data = request.get_json()
+    locustsuite = data.get("locustsuite")
+    title = data.get("title")
     force = data.get("force", False)
+    test_env = data.get("test_env")
+    # check locustsuite 是否存在
+    suite = LocustSuite().get_or_none(id=locustsuite)
+    if not suite:
+        return JsonResponse.error_response(error_message="测试套件不存在")
+    # check Titile 是否唯一且存在
+    test = LocustTestResult().get_or_none(title=title)
+    if test:
+        return JsonResponse.error_response(error_message="测试标题已存在")
+    if not test_env:
+        return JsonResponse.error_response(error_message="测试环境不能为空")
     # 执行测试前,先check是否有locustfiles的进程,如果有则需要根据传入是否强制终止上一次压测的参数,先杀掉进程
-    locust_pids = get_locust_pids()
-    if locust_pids:
+    # 检测locusttestresult的表中result字段是否有Running,如果有,则说明有locust进程在运行
+    # 如果有locust进程在运行,则判断是否强制终止,如果强制终止,则杀掉进程,重新运行
+    # 如果不强制终止,则返回错误信息
+    # check locust进程 是否存在
+    running_list = LocustTestResult().select().where(LocustTestResult.result == "Running")
+    count = running_list.count()
+    logger.info(f"当前有{count}个locust进程在运行")
+
+    # logger.info(f"当前有{result}个locust进程在运行")
+    if count > 0:
         if force:
             # 强制终止
             stop_locust_process()
+            # 修改running_list中status的状态为1,表示结束,result状态为Done
+            LocustTestResult.update(status=1, result="Done").where(LocustTestResult.result=="Running").execute()
         else:
-            return JsonResponse.error_response(
-                error_message="当前有locust进程在运行,请先终止"
-            )
+            return JsonResponse.error_response(error_message="当前有locust进程在运行,启动测试失败")
+    else:
+        locust_pids = get_locust_pids()
+        if locust_pids:
+            # 存在执行的locust进程,则先杀掉进程
+            stop_locust_process()
+
     # 创建一个压测result,后续存储相关测试进度
     resp = flask_util.create_model_instance(LocustTestResult)
     logger.info(resp.response)
@@ -415,16 +451,52 @@ def force_stop_locust_test():
 # 软停止locust测试进程
 @locust_test.route("/stop_locust_test", methods=["POST"])
 def stop_locust_test():
-    result = LocustTestResult().get_or_none(status=2)
-    if not result:
+    '''
+        逻辑:
+       1. 在数据库中,查询是否有Running状态的数据,如果存在,则取最后一条数据
+        2. 查看当前是否有locust的进程
+
+        如果数据库中存在,且当前有locust进程,则返回
+        msg: 当前有正在运行的locust进程
+        data={}
+
+        如果数据库中存在,且当前无locust进程,则返回
+        msg: 当前无正在运行的locust进程
+        data={}
+
+        如果数据库中不存在,且当前有locust进程,则返回
+        msg: 当前无正在运行的locust进程
+        data={
+        且,修改数据的值
+        }
+    '''
+    locust_pids = get_locust_pids()
+    logger.info(locust_pids)
+    # 从数据库中,查找最后一条Running状态的result,返回
+    last_running = (LocustTestResult
+                    .select()
+                    .where(LocustTestResult.result == "Running")
+                    .limit(1))  # 限制结果为1条
+    case = last_running[0] if last_running else None
+    # 进行逻辑处理
+    if case and locust_pids:
+        # 存在执行的locust进程,则先杀掉进程
+        stop_locust_process()
+        case.status = 1
+        case.result = "Done"
+        case.save()
+        return JsonResponse.success_response(msg="停止locust测试进程成功", data={"id": case.id})
+    elif case and not locust_pids:
+        # 修改running_list中status的状态为1,表示结束,result状态为Done
+        LocustTestResult.update(status=1, result="Done").where(LocustTestResult.result == "Running").execute()
+        return JsonResponse.success_response(msg="不存在locust进程,已经修改相关测试结果的状态", data={"id": case.id})
+    elif not case and locust_pids:
+        # 没有正在运行的测试,但是存在locust进程,则返回错误信息
         return JsonResponse.error_response(error_message="当前无正在运行的locust进程")
-    stop_locust_process()
-    result.status = 1
-    result.result = "Done"
-    result.save()
-    return JsonResponse.success_response(
-        msg="停止locust测试进程成功", data={"id": result.id}
-    )
+    else:
+        # 没有正在运行的测试,且没有locust进程,则返回错误信息
+        return JsonResponse.error_response(error_message="当前无正在运行的locust进程")
+
 
 
 # 获取当前正在进行运行的locust测试详情
@@ -452,14 +524,62 @@ def get_locust_test_detail():
 # 查看当前是否还有运行中的locust进程存在
 @locust_test.route("/check_locust_process", methods=["GET"])
 def check_locust_process():
+    '''
+    查看当前是否有正在运行的locust进程
+    逻辑:
+        1. 在数据库中,查询是否有Running状态的数据,如果存在,则取最后一条数据
+        2. 查看当前是否有locust的进程
+
+        如果数据库中存在,且当前有locust进程,则返回
+        msg: 当前有正在运行的locust进程
+        data={
+            "id": result.id,
+            "title": result.title,
+            "port": result.port,
+            "url": f"{settings.nginx.host}:{result.port}",
+        }
+
+        如果数据库中存在,且当前无locust进程,则返回
+        msg: 当前无正在运行的locust进程
+        data={}
+
+        如果数据库中不存在,且当前有locust进程,则返回
+        msg: 当前无正在运行的locust进程
+        data={}
+        且,修改数据的值
+
+
+    '''
     locust_pids = get_locust_pids()
     logger.info(locust_pids)
-    if not locust_pids:
-        return JsonResponse.success_response(data="当前无正在运行的locust进程")
-    return JsonResponse.success_response(data="当前有正在运行的locust进程")
+    # 从数据库中,查找最后一条Running状态的result,返回
+    last_running = (LocustTestResult
+                    .select()
+                    .where(LocustTestResult.result == "Running")
+                    .limit(1))  # 限制结果为1条
+    case = last_running[0] if last_running else None
+    # 进行逻辑处理
+    if case and locust_pids:
+        return JsonResponse.success_response(data={
+            "id": case.id,
+            "title": case.title,
+            "port": case.port,
+            "url": f"{settings.nginx.host}:{case.port}",
+        },msg="当前有正在运行的locust进程")
+    elif case and not locust_pids:
+        # 修改running_list中status的状态为1,表示结束,result状态为Done
+        LocustTestResult.update(status=1, result="Done").where(LocustTestResult.result == "Running").execute()
+        return JsonResponse.success_response(data={},msg="不存在locust进程,已经修改相关测试结果的状态")
+    elif not case and locust_pids:
+        return JsonResponse.success_response(data={},msg="当前无正在运行的locust进程")
+    else:
+        return JsonResponse.success_response(data={},msg="当前无正在运行的locust进程")
 
 
 def stop_locust_process():
+    '''
+    停止locust进程
+    '''
     # 查找 Locust 进程
     locust_pids = get_locust_pids()
 
