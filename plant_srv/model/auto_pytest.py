@@ -119,9 +119,9 @@ class CaseTag(BaseModel):
 
 if __name__ == "__main__":
     # 删除表
-    # database.drop_tables(
-    #     [CaseMoudle, CaseFunc, Project, Suite, TestPlan, TestResult, CaseTag]
-    # )
+    database.drop_tables(
+        [CaseMoudle, CaseFunc, Project, Suite, TestPlan, TestResult, CaseTag]
+    )
     # # 创建表
     database.create_tables(
         [CaseMoudle, CaseFunc, Project, Suite, TestPlan, TestResult, CaseTag]
