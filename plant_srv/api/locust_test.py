@@ -2,6 +2,7 @@ import json
 import os
 import signal
 import subprocess
+import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -377,6 +378,9 @@ def run_locust_test():
     test = LocustTestResult().get_or_none(title=title)
     if test:
         return JsonResponse.error_response(error_message="测试标题已存在")
+    # 如果不存在title，那么获取suite的suite_name+时间作为title
+    if not title:
+        title = f"{suite.suite_name}_{time.strftime('%Y%m%d%H%M%S', time.localtime())}"
     if not test_env:
         return JsonResponse.error_response(error_message="测试环境不能为空")
     # 执行测试前,先check是否有locustfiles的进程,如果有则需要根据传入是否强制终止上一次压测的参数,先杀掉进程
@@ -426,6 +430,7 @@ def run_locust_test():
     if not task_id:
         task_id = str(uuid.uuid4())
     locust_task = LocustTestResult().get(id=id_)
+    locust_task.title = title
     locust_task.task_id = task_id
     locust_task.status = (
         2  # 2代表运行中 TODO 这些状态应该由util里面enum模块管理的,时间紧急,待后续优化
