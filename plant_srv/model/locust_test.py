@@ -60,7 +60,9 @@ class LocustSuite(BaseModel):
 
 class LocustTestResult(BaseModel):
     # 标题
-    title = CharField(max_length=100, null=True, verbose_name="测试报告标题",unique=True)
+    title = CharField(
+        max_length=100, null=True, verbose_name="测试报告标题", unique=True
+    )
     # 外键 suite_name
     locustsuite = ForeignKeyField(LocustSuite, verbose_name="suite_name")
     # 运行的状态 0 代表初始化 1 代表流程结束 2代表运行中
@@ -86,11 +88,11 @@ class LocustTestResult(BaseModel):
     # shape_name
     shape_name = CharField(max_length=100, null=True, verbose_name="shape_name")
     # port locust启动的端口
-    port = IntegerField(null=True, default=8090,verbose_name="locust启动的端口")
+    port = IntegerField(null=True, default=8090, verbose_name="locust启动的端口")
     # headless 是否是无头模式
-    headless = BooleanField(null=True, verbose_name="是否是无头模式",default=False)
+    headless = BooleanField(null=True, verbose_name="是否是无头模式", default=False)
     # 是否是分布式
-    distributed = BooleanField(null=True, verbose_name="是否是分布式",default=False)
+    distributed = BooleanField(null=True, verbose_name="是否是分布式", default=False)
     # 分布式节点
     nodes = TextField(null=True, verbose_name="分布式节点")
     # 增速
@@ -105,16 +107,14 @@ class LocustTestResult(BaseModel):
     test_user = CharField(max_length=100, null=True, verbose_name="测试case执行人")
 
 
-
-
 if __name__ == "__main__":
-    LocustTestResult.drop_table()
-    LocustTestResult.create_table()
+    # LocustTestResult.drop_table()
+    # LocustTestResult.create_table()
     # 删除表
-    # database.drop_tables(
-    #     [LocustTestResult, LocustSuite, LocustFunc, LocustShape],
-    # )
-    # # 创建表
-    # database.create_tables(
-    #     [LocustTestResult, LocustSuite, LocustFunc, LocustShape],
-    # )
+    database.drop_tables(
+        [LocustTestResult, LocustSuite, LocustFunc, LocustShape],
+    )
+    # 创建表
+    database.create_tables(
+        [LocustTestResult, LocustSuite, LocustFunc, LocustShape],
+    )

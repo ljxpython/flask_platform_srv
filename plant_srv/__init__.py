@@ -44,7 +44,7 @@ def create_app():
     if settings.env == "online":
         init_error_exception(app)
     register_middlewares(app)
-    celery_init_app(app)
+    # celery_init_app(app)
 
     scheduler.init_app(app)
     logging.getLogger("apscheduler").setLevel(logging.INFO)
