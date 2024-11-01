@@ -620,7 +620,9 @@ def get_suite_list():
     if request.args.get("current"):
         start = per_page_nums * (int(request.args.get("current")) - 1)
     total = suites.count()
-    suites = suites.limit(per_page_nums).offset(start)
+    suites = (
+        suites.limit(per_page_nums).offset(start).order_by(Suite.update_time.desc())
+    )
     for suite in suites:
         suite_list.append(
             model_to_dict(suite, exclude=[Suite.is_deleted, Suite.case_ids])
