@@ -1324,9 +1324,6 @@ def create_run_case(
     project_name = suite.project.project_name
     title = f"{project_name}-{suite_name}-{test_type}-{test_env}-{start_time}"
     logger.info(title)
-    case = TestResult.create(
-        title=title, suite=suite, test_type=test_type, test_env=test_env
-    )
     # 创建一个测试计划等待执行
     suite = Suite().get_or_none(id=suite)
     if not suite:
