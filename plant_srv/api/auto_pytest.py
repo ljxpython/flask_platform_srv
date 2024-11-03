@@ -1033,6 +1033,7 @@ def list_case_plant():
         exclude=[TestPlan.is_deleted],
         recurse=False,
     )
+    # 查询测试计划的清单
     return resp
     # plans = TestPlan.select()
     # if request.args.get("id"):
@@ -1126,18 +1127,15 @@ def set_case_result_by_celery():
 
 @auto_pytest.route("/job_test", methods=["POST"])
 def job_test():
-    job = scheduler.add_job(
-        func=task2,
-        # trigger="cron",
-        # seconds=30,
-        id="test2",
-        name="test2",
-        replace_existing=True,
-        kwargs={"a": 1, "b": 2},
-        trigger=CronTrigger.from_crontab("30 * * * *"),
-    )
-    logger.info(job)
-    return JsonResponse.success_response(data="定时任务开启成功")
+    jobs = scheduler.get_jobs()
+    job_info = []
+    for job in jobs:
+        if isinstance(job.trigger, CronTrigger):
+            logger.info(f"Job ID: {job.id}, Trigger: {job.trigger}, Next Run Time: {job.next_run_time}")
+            job_info.append(f"Job ID: {job.id}, Trigger: {job.trigger}, Next Run Time: {job.next_run_time}")
+
+
+    return JsonResponse.success_response(data=job_info)
 
 
 # 动态设置定时任务,开启\关闭\更新
@@ -1206,6 +1204,7 @@ def set_case_result_by_cron():
     if update_corn:
         # 更新定时任务配置
         plan.is_open = is_open
+        logger.info(f"更新定时任务配置:{cron}")
         if not cron:
             plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
         else:
@@ -1234,7 +1233,7 @@ def set_case_result_by_cron():
             name=plan_name,
             replace_existing=True,
             trigger=CronTrigger.from_crontab(
-                f"{minute} {hour} {day} {month} {day_of_week}"
+                plan.cron
             ),
             kwargs={
                 "suite": plan.suite.id,
