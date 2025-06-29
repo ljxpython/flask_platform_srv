@@ -24,6 +24,7 @@ from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
 )
+
 from playhouse.shortcuts import model_to_dict
 
 from conf.config import settings
@@ -1182,8 +1183,6 @@ def set_case_result_by_cron():
     test_user = data.get("test_user", "test")
     if not id_:
         return JsonResponse.error_response(error_message="id不能为空")
-    # if not plan_name:
-    #     return JsonResponse.error_response(error_message="测试计划名称不能为空")
     plan = TestPlan.get_or_none(id=id_)
     if not plan:
         return JsonResponse.error_response(error_message="测试计划不存在")
@@ -1210,13 +1209,13 @@ def set_case_result_by_cron():
         else:
             plan.cron = cron
         plan.save()
-        # 更新定时任务
-        scheduler.reschedule_job(
-            id=plan.plan_id,
-            trigger=CronTrigger.from_crontab(f"{plan.cron}"),
-        )
-        if run_once:
-            scheduler.run_job(id=plan.plan_id)
+        # # 更新定时任务
+        # scheduler.reschedule_job(
+        #     id=plan.plan_id,
+        #     trigger=CronTrigger.from_crontab(f"{plan.cron}"),
+        # )
+        # if run_once:
+        #     scheduler.run_job(id=plan.plan_id)
         return JsonResponse.success_response(data="定时任务更新成功", msg=plan.plan_id)
     if is_open == "on":
         # 开启定时任务配置
@@ -1226,50 +1225,38 @@ def set_case_result_by_cron():
         else:
             plan.cron = cron
         plan.save()
-        # # 开启定时任务,及是否直接触发一次
-        task = scheduler.add_job(
-            func=create_run_case,
-            id=plan.plan_id,
-            name=plan_name,
-            replace_existing=True,
-            trigger=CronTrigger.from_crontab(
-                plan.cron
-            ),
-            kwargs={
-                "suite": plan.suite.id,
-                "test_type": "cron",
-                "test_env": plan.test_env,
-                # "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
-                "plan_id": plan.id,
-                "test_user": test_user,
-            },
-        )
-        if run_once:
-            scheduler.run_job(id=plan.plan_id)
-        logger.info(task)
+        # # # 开启定时任务,及是否直接触发一次
+        # task = scheduler.add_job(
+        #     func=create_run_case,
+        #     id=plan.plan_id,
+        #     name=plan_name,
+        #     replace_existing=True,
+        #     trigger=CronTrigger.from_crontab(
+        #         plan.cron
+        #     ),
+        #     kwargs={
+        #         "suite": plan.suite.id,
+        #         "test_type": "cron",
+        #         "test_env": plan.test_env,
+        #         # "start_time": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
+        #         "plan_id": plan.id,
+        #         "test_user": test_user,
+        #     },
+        # )
+        # if run_once:
+        #     scheduler.run_job(id=plan.plan_id)
+        # logger.info(task)
         return JsonResponse.success_response(data="定时任务开启成功", msg=plan.plan_id)
-    # elif update_corn:
-    #     # 更新定时任务配置
-    #     plan.is_open = is_open
-    #     plan.cron = f"{minute} {hour} {day} {month} {day_of_week}"
-    #     plan.save()
-    #     # 更新定时任务
-    #     scheduler.reschedule_job(
-    #         id=plan.plan_id,
-    #         trigger=CronTrigger.from_crontab(
-    #             f"{minute} {hour} {day} {month} {day_of_week}"
-    #         ),
-    #     )
     else:
         # 关闭定时任务配置
         plan.is_open = is_open
         plan.save()
-        # 关闭定时任务
-        try:
-            scheduler.remove_job(id=plan.plan_id)
-        except Exception as e:
-            logger.error(e)
-            pass
+        # # 关闭定时任务
+        # try:
+        #     scheduler.remove_job(id=plan.plan_id)
+        # except Exception as e:
+        #     logger.error(e)
+        #     pass
         return JsonResponse.success_response(
             data="设置成功,定时任务已关闭", msg=plan.plan_id
         )
